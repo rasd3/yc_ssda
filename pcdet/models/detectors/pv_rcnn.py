@@ -1,4 +1,5 @@
 from .detector3d_template import Detector3DTemplate
+from pcdet.utils.simplevis import nuscene_vis
 
 
 class PVRCNN(Detector3DTemplate):
@@ -7,6 +8,15 @@ class PVRCNN(Detector3DTemplate):
         self.module_list = self.build_networks()
 
     def forward(self, batch_dict):
+        if False:
+            import cv2
+            b_size = batch_dict['gt_boxes'].shape[0]
+            for b in range(b_size):
+                points = batch_dict['points'][batch_dict['points'][:, 0] == b][:, 1:4].cpu().numpy()
+                gt_boxes = batch_dict['gt_boxes'][b].cpu().numpy()
+                det = nuscene_vis(points, gt_boxes)
+                cv2.imwrite('test_%02d.png' % b, det)
+
         for cur_module in self.module_list:
             batch_dict = cur_module(batch_dict)
 
@@ -18,6 +28,7 @@ class PVRCNN(Detector3DTemplate):
             }
             return ret_dict, tb_dict, disp_dict
         else:
+            #  print(self.training)
             pred_dicts, recall_dicts = self.post_processing(batch_dict)
             return pred_dicts, recall_dicts, {}
 

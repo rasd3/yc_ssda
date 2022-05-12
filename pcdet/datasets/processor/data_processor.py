@@ -1,17 +1,24 @@
 from functools import partial
+import torch
 
 import numpy as np
 
 from ...utils import box_utils, common_utils
+tv = None
+try:
+    import cumm.tensorview as tv
+except:
+    pass
 
 
 class DataProcessor(object):
-    def __init__(self, processor_configs, point_cloud_range, training):
+    def __init__(self, processor_configs, point_cloud_range, training, num_point_features):
         self.point_cloud_range = point_cloud_range
         self.training = training
         self.mode = 'train' if training else 'test'
         self.grid_size = self.voxel_size = None
         self.data_processor_queue = []
+        self.num_point_features=num_point_features
         for cur_cfg in processor_configs:
             cur_processor = getattr(self, cur_cfg.NAME)(config=cur_cfg)
             self.data_processor_queue.append(cur_processor)
@@ -44,22 +51,42 @@ class DataProcessor(object):
         if data_dict is None:
             try:
                 from spconv.utils import VoxelGeneratorV2 as VoxelGenerator
+                self.spconv_ver = 1
             except:
-                from spconv.utils import VoxelGenerator
+                try:
+                    from spconv.utils import VoxelGenerator
+                    self.spconv_ver = 1
+                except:
+                    from spconv.pytorch.utils import PointToVoxel as VoxelGenerator
+                    self.spconv_ver = 2
 
-            voxel_generator = VoxelGenerator(
-                voxel_size=config.VOXEL_SIZE,
-                point_cloud_range=self.point_cloud_range,
-                max_num_points=config.MAX_POINTS_PER_VOXEL,
-                max_voxels=config.MAX_NUMBER_OF_VOXELS[self.mode]
-            )
+            if self.spconv_ver == 1:
+                voxel_generator = VoxelGenerator(
+                    voxel_size=config.VOXEL_SIZE,
+                    point_cloud_range=self.point_cloud_range,
+                    max_num_points=config.MAX_POINTS_PER_VOXEL,
+                    max_voxels=config.MAX_NUMBER_OF_VOXELS[self.mode]
+                )
+            else:
+                voxel_generator = VoxelGenerator(
+                    vsize_xyz=config.VOXEL_SIZE,
+                    coors_range_xyz=self.point_cloud_range,
+                    num_point_features=self.num_point_features,
+                    max_num_points_per_voxel=config.MAX_POINTS_PER_VOXEL,
+                    max_num_voxels=config.MAX_NUMBER_OF_VOXELS[self.mode]
+                )
+
+
             grid_size = (self.point_cloud_range[3:6] - self.point_cloud_range[0:3]) / np.array(config.VOXEL_SIZE)
             self.grid_size = np.round(grid_size).astype(np.int64)
             self.voxel_size = config.VOXEL_SIZE
             return partial(self.transform_points_to_voxels, voxel_generator=voxel_generator)
 
         points = data_dict['points']
-        voxel_output = voxel_generator.generate(points)
+        if self.spconv_ver == 1:
+            voxel_output = voxel_generator.generate(points)
+        else:
+            voxel_output = voxel_generator(torch.from_numpy(points), empty_mean=True)
         if isinstance(voxel_output, dict):
             voxels, coordinates, num_points = \
                 voxel_output['voxels'], voxel_output['coordinates'], voxel_output['num_points_per_voxel']

@@ -246,6 +246,8 @@ class Detector3DTemplate(nn.Module):
                         sem_scores = batch_dict['roi_scores'][index]
                 else:
                     label_preds = label_preds + 1
+                    if self.training:
+                        sem_scores = batch_dict['roi_scores'][index]
 
                 if no_nms:
                     selected = torch.arange(len(cls_preds), device=cls_preds.device)

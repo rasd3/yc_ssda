@@ -54,6 +54,7 @@ def eval_one_epoch(cfg, model, dataloader, epoch_id, logger, dist_test=False, sa
     for i, batch_dict in enumerate(dataloader):
         load_data_to_gpu(batch_dict)
         with torch.no_grad():
+            #  pred_dicts, ret_dict = model(batch_dict)
             pred_dicts, ret_dict, tb_dict = model(batch_dict)
         disp_dict = {}
 
@@ -116,8 +117,8 @@ def eval_one_epoch(cfg, model, dataloader, epoch_id, logger, dist_test=False, sa
     logger.info(result_str)
     ret_dict.update(result_dict)
 
-    for key, val in tb_dict.items():
-        ret_dict[key] = val
+    #  for key, val in tb_dict.items():
+        #  ret_dict[key] = val
 
     logger.info('Result is save to %s' % result_dir)
     logger.info('****************Evaluation done.*****************')

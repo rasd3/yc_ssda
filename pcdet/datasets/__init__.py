@@ -8,14 +8,20 @@ from .dataset import DatasetTemplate
 from .kitti.kitti_dataset import KittiDataset
 from .kitti.kitti_dataset_ssl import KittiDatasetSSL
 from .nuscenes.nuscenes_dataset import NuScenesDataset
+from .nuscenes.nuscenes_dataset_ssl import NuScenesDatasetSSL
 from .waymo.waymo_dataset import WaymoDataset
+from .omega.omega_dataset import OmegaDataset
+from .omega.omega_dataset_ssl import OmegaDatasetSSL
 
 __all__ = {
     'DatasetTemplate': DatasetTemplate,
     'KittiDataset': KittiDataset,
     'KittiDatasetSSL': KittiDatasetSSL,
     'NuScenesDataset': NuScenesDataset,
-    'WaymoDataset': WaymoDataset
+    'NuScenesDatasetSSL': NuScenesDatasetSSL,
+    'WaymoDataset': WaymoDataset,
+    'OmegaDataset': OmegaDataset,
+    'OmegaDatasetSSL': OmegaDatasetSSL
 }
 
 

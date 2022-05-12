@@ -41,7 +41,7 @@ def random_flip_along_y(gt_boxes, points, enable_=None):
     return gt_boxes, points, enable
 
 
-def global_rotation(gt_boxes, points, rot_range, rot_angle_=None):
+def global_rotation(gt_boxes, points, rot_range, rot_angle_=None, is_omega=False):
     """
     Args:
         gt_boxes: (N, 7 + C), [x, y, z, dx, dy, dz, heading, [vx], [vy]]
@@ -52,7 +52,11 @@ def global_rotation(gt_boxes, points, rot_range, rot_angle_=None):
     noise_rotation = np.random.uniform(rot_range[0], rot_range[1]) if rot_angle_ is None else rot_angle_
     points = common_utils.rotate_points_along_z(points[np.newaxis, :, :], np.array([noise_rotation]))[0]
     gt_boxes[:, 0:3] = common_utils.rotate_points_along_z(gt_boxes[np.newaxis, :, 0:3], np.array([noise_rotation]))[0]
-    gt_boxes[:, 6] += noise_rotation
+
+    if is_omega:
+        gt_boxes[:, 6] -= noise_rotation
+    else:
+        gt_boxes[:, 6] += noise_rotation
     if gt_boxes.shape[1] > 7:
         gt_boxes[:, 7:9] = common_utils.rotate_points_along_z(
             np.hstack((gt_boxes[:, 7:9], np.zeros((gt_boxes.shape[0], 1))))[np.newaxis, :, :],

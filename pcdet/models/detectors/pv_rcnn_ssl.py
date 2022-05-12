@@ -6,7 +6,7 @@ import copy
 from pcdet.datasets.augmentor.augmentor_utils import *
 from pcdet.ops.iou3d_nms import iou3d_nms_utils
 from .detector3d_template import Detector3DTemplate
-from.pv_rcnn import PVRCNN
+from .pv_rcnn import PVRCNN
 
 
 class PVRCNN_SSL(Detector3DTemplate):
@@ -58,7 +58,6 @@ class PVRCNN_SSL(Detector3DTemplate):
                         batch_dict_ema = cur_module(batch_dict_ema)
                 pred_dicts, recall_dicts = self.pv_rcnn_ema.post_processing(batch_dict_ema,
                                                                             no_recall_dict=True, override_thresh=0.0, no_nms=self.no_nms)
-
                 pseudo_boxes = []
                 pseudo_scores = []
                 pseudo_labels = []
@@ -74,7 +73,6 @@ class PVRCNN_SSL(Detector3DTemplate):
                         pseudo_boxes.append(pseudo_label.new_zeros((0, 8)).float())
                         continue
 
-
                     conf_thresh = torch.tensor(self.thresh, device=pseudo_label.device).unsqueeze(
                         0).repeat(len(pseudo_label), 1).gather(dim=1, index=(pseudo_label-1).unsqueeze(-1))
 
@@ -86,11 +84,11 @@ class PVRCNN_SSL(Detector3DTemplate):
                     pseudo_box = pseudo_box[valid_inds]
                     pseudo_label = pseudo_label[valid_inds]
 
-                    # if len(valid_inds) > max_box_num:
-                    #     _, inds = torch.sort(pseudo_score, descending=True)
-                    #     inds = inds[:max_box_num]
-                    #     pseudo_box = pseudo_box[inds]
-                    #     pseudo_label = pseudo_label[inds]
+                    #  if len(valid_inds) > max_box_num:
+                       #  _, inds = torch.sort(pseudo_score, descending=True)
+                       #  inds = inds[:max_box_num]
+                       #  pseudo_box = pseudo_box[inds]
+                       #  pseudo_label = pseudo_label[inds]
 
                     pseudo_boxes.append(torch.cat([pseudo_box, pseudo_label.view(-1, 1).float()], dim=1))
                     if pseudo_box.shape[0] > max_pseudo_box_num:
@@ -114,9 +112,9 @@ class PVRCNN_SSL(Detector3DTemplate):
                     new_boxes = torch.zeros((ori_boxes.shape[0], max_pseudo_box_num, ori_boxes.shape[2]),
                                             device=ori_boxes.device)
                     for i, inds in enumerate(labeled_mask):
-                        diff = max_pseudo_box_num - ori_boxes[i].shape[0]
-                        new_box = torch.cat([ori_boxes[i], torch.zeros((diff, 8), device=ori_boxes[i].device)], dim=0)
-                        new_boxes[i] = new_box
+                        diff = max_pseudo_box_num - ori_boxes[inds].shape[0]
+                        new_box = torch.cat([ori_boxes[inds], torch.zeros((diff, 8), device=ori_boxes[inds].device)], dim=0)
+                        new_boxes[inds] = new_box
                     for i, pseudo_box in enumerate(pseudo_boxes):
 
                         diff = max_pseudo_box_num - pseudo_box.shape[0]
@@ -145,7 +143,7 @@ class PVRCNN_SSL(Detector3DTemplate):
                 pseudo_accs = []
                 pseudo_fgs = []
                 for i, ind in enumerate(unlabeled_mask):
-                    # statistics
+                    'statistics'
                     anchor_by_gt_overlap = iou3d_nms_utils.boxes_iou3d_gpu(
                         batch_dict['gt_boxes'][ind, ...][:, 0:7],
                         ori_unlabeled_boxes[i, :, 0:7])
@@ -165,7 +163,7 @@ class PVRCNN_SSL(Detector3DTemplate):
                                        / torch.clamp((iou_max < 0.5).float().sum(dim=0, keepdim=True), min=1.0)
                         pseudo_fgs.append(fg)
 
-                        # only for 100% label
+                        'only for 100% label'
                         if self.supervise_mode >= 1:
                             filter = iou_max > 0.3
                             asgn = asgn[filter]
@@ -260,7 +258,7 @@ class PVRCNN_SSL(Detector3DTemplate):
         # Use the true average until the exponential average is more correct
         alpha = min(1 - 1 / (self.global_step + 1), alpha)
         for ema_param, param in zip(self.pv_rcnn_ema.parameters(), self.pv_rcnn.parameters()):
-            ema_param.data.mul_(alpha).add_(1 - alpha, param.data)
+            ema_param.data.mul_(alpha).add_((1 - alpha) * param.data)
 
     def load_params_from_file(self, filename, logger, to_cpu=False):
         if not os.path.isfile(filename):
