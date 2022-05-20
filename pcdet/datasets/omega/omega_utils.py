@@ -557,20 +557,8 @@ def fill_trainval_part_infos(data_path,
 
             gt_boxes = np.concatenate([locs, dims, rots, velocity[:, :2]], axis=1)
             # rot 90
-            gt_boxes = gt_boxes[:, [1, 0, 2, 3, 4, 5, 6]]
-            gt_boxes[:, 6] = -gt_boxes[:, 6] + np.pi
-            gt_boxes[:, 1] = -gt_boxes[:, 1]
-            ########
-            if False:
-                gt_boxes = np.concatenate([locs, dims, -rots + np.pi / 2], axis=1)
-                # rot 90
-                gt_boxes = gt_boxes[:, [1, 0, 2, 3, 4, 5, 6]]
-                gt_boxes[:, 6] = -gt_boxes[:, 6] + np.pi / 2
-                gt_boxes[:, 1] = -gt_boxes[:, 1]
-                gt_boxes[:, 6] = -gt_boxes[:, 6] + np.pi
-                ########
-            #  gt_boxes = np.concatenate([locs, dims, rots, velocity[:, :2]],
-                                      #  axis=1)
+            gt_boxes = gt_boxes[:, [1, 0, 2, 4, 3, 5, 6]]
+            gt_boxes[:, 6] = -gt_boxes[:, 6] - np.pi / 2
 
             assert len(annotations) == len(gt_boxes) == len(velocity)
 
@@ -732,20 +720,8 @@ def fill_trainval_infos(data_path,
 
             gt_boxes = np.concatenate([locs, dims, rots, velocity[:, :2]], axis=1)
             # rot 90
-            gt_boxes = gt_boxes[:, [1, 0, 2, 3, 4, 5, 6]]
-            gt_boxes[:, 6] = -gt_boxes[:, 6] + np.pi
-            gt_boxes[:, 1] = -gt_boxes[:, 1]
-            ########
-            if False:
-                gt_boxes = np.concatenate([locs, dims, -rots + np.pi / 2], axis=1)
-                # rot 90
-                gt_boxes = gt_boxes[:, [1, 0, 2, 3, 4, 5, 6]]
-                gt_boxes[:, 6] = -gt_boxes[:, 6] + np.pi / 2
-                gt_boxes[:, 1] = -gt_boxes[:, 1]
-                gt_boxes[:, 6] = -gt_boxes[:, 6] + np.pi
-                ########
-            #  gt_boxes = np.concatenate([locs, dims, rots, velocity[:, :2]],
-                                      #  axis=1)
+            gt_boxes = gt_boxes[:, [1, 0, 2, 4, 3, 5, 6]]
+            gt_boxes[:, 6] = -gt_boxes[:, 6] - np.pi / 2
 
             assert len(annotations) == len(gt_boxes) == len(velocity)
 
@@ -757,6 +733,10 @@ def fill_trainval_infos(data_path,
             info['gt_boxes_token'] = tokens[mask]
             info['num_lidar_pts'] = num_lidar_pts[mask]
             info['num_radar_pts'] = num_lidar_pts[mask]
+
+        if False:
+            from pcdet.datasets.nuscenes.nuscenes_utils import point_vis
+            point_vis(info, root_path='./data/omega/v0.5-omega-trainval/', max_sweeps=1)
 
         if sample['scene_token'] in train_scenes:
             train_nusc_infos.append(info)

@@ -6,6 +6,7 @@ import numpy as np
 from tqdm import tqdm
 
 from ...ops.roiaware_pool3d import roiaware_pool3d_utils
+from pcdet.utils.simplevis import nuscene_vis
 from ...utils import common_utils
 from ..dataset import DatasetTemplate
 
@@ -175,7 +176,21 @@ class NuScenesDataset(DatasetTemplate):
                 info['gt_boxes'] if mask is None else info['gt_boxes'][mask]
             })
 
+        if False:
+            import cv2
+            gt_boxes = input_dict['gt_boxes'].copy()
+            gt_boxes[:, 6] = -gt_boxes[:, 6]
+            bev_map = nuscene_vis(input_dict['points'], boxes=gt_boxes)
+            cv2.imwrite('test_sex_1bef.png', bev_map)
+
         data_dict = self.prepare_data(data_dict=input_dict)
+        if False:
+            import cv2
+            gt_boxes = data_dict['gt_boxes'].copy()
+            gt_boxes[:, 6] = -gt_boxes[:, 6]
+            bev_map = nuscene_vis(data_dict['points'], boxes=gt_boxes)
+            cv2.imwrite('test_sex_2aft.png', bev_map)
+            breakpoint()
 
         if self.dataset_cfg.get('SET_NAN_VELOCITY_TO_ZEROS', False):
             gt_boxes = data_dict['gt_boxes']
@@ -646,12 +661,6 @@ if __name__ == '__main__':
         )
 
         dataset_cfg.REPEAT = 1
-        dataset_cfg.INFO_PATH['train'] = [
-            f'nuscenes_infos_mini_train.pkl'
-        ]
-        dataset_cfg.INFO_PATH['test'] = [
-            f'nuscenes_infos_mini_val.pkl'
-        ]
         nuscenes_dataset = NuScenesDataset(dataset_cfg=dataset_cfg,
                                            class_names=None,
                                            root_path=data_save_path,

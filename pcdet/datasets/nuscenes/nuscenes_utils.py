@@ -430,6 +430,57 @@ def fill_trainval_part_infos(data_path,
     return train_nusc_infos, unlabeled_nusc_infos, val_nusc_infos
 
 
+def point_vis(info, root_path='./data/nuscenes/v1.0-trainval/', max_sweeps=10):
+    def get_sweep(sweep_info):
+
+        def remove_ego_points(points, center_radius=1.0):
+            mask = ~((np.abs(points[:, 0]) < center_radius) &
+                     (np.abs(points[:, 1]) < center_radius))
+            return points[mask]
+
+        lidar_path = root_path + sweep_info['lidar_path']
+        points_sweep = np.fromfile(str(lidar_path), dtype=np.float32,
+                                   count=-1).reshape([-1, 5])[:, :4]
+        points_sweep = remove_ego_points(points_sweep).T
+        if sweep_info['transform_matrix'] is not None:
+            num_points = points_sweep.shape[1]
+            points_sweep[:3, :] = sweep_info['transform_matrix'].dot(
+                np.vstack((points_sweep[:3, :], np.ones(num_points))))[:3, :]
+
+        cur_times = sweep_info['time_lag'] * np.ones(
+            (1, points_sweep.shape[1]))
+        return points_sweep.T, cur_times.T
+
+    from pcdet.utils.simplevis import nuscene_vis
+    import cv2
+
+    lidar_path = root_path + info['lidar_path']
+    points = np.fromfile(str(lidar_path), dtype=np.float32,
+                         count=-1).reshape([-1, 5])[:, :4]
+
+    sweep_points_list = [points]
+    sweep_times_list = [np.zeros((points.shape[0], 1))]
+
+    for k in np.random.choice(len(info['sweeps']),
+                              max_sweeps - 1,
+                              replace=False):
+        points_sweep, times_sweep = get_sweep(info['sweeps'][k])
+        sweep_points_list.append(points_sweep)
+        sweep_times_list.append(times_sweep)
+
+    points = np.concatenate(sweep_points_list, axis=0)
+    times = np.concatenate(sweep_times_list, axis=0).astype(points.dtype)
+
+    points = np.concatenate((points, times), axis=1)
+    gt_boxes = info['gt_boxes']
+    gt_boxes[:, 6] = -gt_boxes[:, 6]
+    bev_map = nuscene_vis(points, boxes=gt_boxes)
+    cv2.imwrite('nuscenes_info_test.png', bev_map)
+    breakpoint()
+
+    return points
+
+
 def fill_trainval_infos(data_path,
                         nusc,
                         train_scenes,
@@ -587,6 +638,10 @@ def fill_trainval_infos(data_path,
             info['gt_boxes_token'] = tokens[mask]
             info['num_lidar_pts'] = num_lidar_pts[mask]
             info['num_radar_pts'] = num_radar_pts[mask]
+
+        if True:
+            # for visualization
+            point_vis(info)
 
         if sample['scene_token'] in train_scenes:
             train_nusc_infos.append(info)

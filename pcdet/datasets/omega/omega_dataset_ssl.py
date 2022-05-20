@@ -6,6 +6,7 @@ from collections import defaultdict
 import numpy as np
 from tqdm import tqdm
 
+from pcdet.utils.simplevis import nuscene_vis
 from pcdet.datasets.augmentor.augmentor_utils import *
 from ...ops.roiaware_pool3d import roiaware_pool3d_utils
 from ...utils import common_utils
@@ -65,7 +66,20 @@ class OmegaDatasetSSL(NuScenesDatasetSSL):
                 'gt_boxes': info['gt_boxes'] if mask is None else info['gt_boxes'][mask]
             })
 
+        if False:
+            import cv2
+            gt_boxes = input_dict['gt_boxes'].copy()
+            gt_boxes[:, 6] = -gt_boxes[:, 6]
+            bev_map = nuscene_vis(input_dict['points'], boxes=gt_boxes)
+            cv2.imwrite('test_sex_1bef.png', bev_map)
         data_dict = self.prepare_data(data_dict=input_dict)
+        if False:
+            import cv2
+            gt_boxes = data_dict['gt_boxes'].copy()
+            gt_boxes[:, 6] = -gt_boxes[:, 6]
+            bev_map = nuscene_vis(data_dict['points'], boxes=gt_boxes)
+            cv2.imwrite('test_sex_2aft.png', bev_map)
+            breakpoint()
 
         if self.dataset_cfg.get('SET_NAN_VELOCITY_TO_ZEROS', False):
             gt_boxes = data_dict['gt_boxes']
@@ -94,7 +108,20 @@ class OmegaDatasetSSL(NuScenesDatasetSSL):
                     'gt_names': info_unlabeled['gt_names'] if mask is None else info_unlabeled['gt_names'][mask],
                     'gt_boxes': info_unlabeled['gt_boxes'] if mask is None else info_unlabeled['gt_boxes'][mask]
                 })
+            if False:
+                import cv2
+                gt_boxes = unlabeled_input_dict['gt_boxes'].copy()
+                gt_boxes[:, 6] = -gt_boxes[:, 6]
+                bev_map = nuscene_vis(unlabeled_input_dict['points'], boxes=gt_boxes)
+                cv2.imwrite('test_sex_1bef.png', bev_map)
             unlabeled_data_dict = self.prepare_data(data_dict=unlabeled_input_dict)
+            if False:
+                import cv2
+                gt_boxes = unlabeled_data_dict['gt_boxes'].copy()
+                gt_boxes[:, 6] = -gt_boxes[:, 6]
+                bev_map = nuscene_vis(unlabeled_data_dict['points'], boxes=gt_boxes)
+                cv2.imwrite('test_sex_2aft.png', bev_map)
+                breakpoint()
 
             if self.dataset_cfg.get('SET_NAN_VELOCITY_TO_ZEROS', False):
                 gt_boxes = unlabeled_data_dict['gt_boxes']

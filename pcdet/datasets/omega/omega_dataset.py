@@ -724,6 +724,7 @@ if __name__ == '__main__':
             max_sweeps=dataset_cfg.MAX_SWEEPS,
         )
 
+        dataset_cfg.REPEAT = 1
         omega_dataset = OmegaDataset(dataset_cfg=dataset_cfg,
                                      class_names=None,
                                      root_path=ROOT_DIR / 'data' / 'omega',

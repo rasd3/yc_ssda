@@ -45,8 +45,8 @@ def parse_config():
     parser.add_argument('--save_to_file', action='store_true', default=False, help='')
     parser.add_argument('--split', type=str, default='train')
     parser.add_argument('--repeat', type=int, default=1)
-    parser.add_argument('--thresh', type=str, default='0.5, 0.25, 0.25')
-    parser.add_argument('--sem_thresh', type=str, default='0.4, 0.0, 0.0')
+    parser.add_argument('--thresh', type=str, default=None)
+    parser.add_argument('--sem_thresh', type=str, default=None)
     # parser.add_argument('--score_thresh', type=float, default=0.0)
     parser.add_argument('--unlabeled_weight', type=float, default=1.0)
     parser.add_argument('--unlabeled_supervise_cls', action='store_true', default=True)
@@ -67,12 +67,13 @@ def parse_config():
         cfg_from_list(args.set_cfgs, cfg)
 
     cfg.DATA_CONFIG.DATA_SPLIT['train'] = args.split
-    assert cfg.DATA_CONFIG.DATA_AUGMENTOR.AUG_CONFIG_LIST[0].NAME == 'gt_sampling'  # hardcode
-    cfg.DATA_CONFIG.DATA_AUGMENTOR.AUG_CONFIG_LIST[0].DB_INFO_PATH = [args.dbinfos]
+    #  assert cfg.DATA_CONFIG.DATA_AUGMENTOR.AUG_CONFIG_LIST[0].NAME == 'gt_sampling'  # hardcode
+    #  cfg.DATA_CONFIG.DATA_AUGMENTOR.AUG_CONFIG_LIST[0].DB_INFO_PATH = [args.dbinfos]
     cfg.DATA_CONFIG.REPEAT = args.repeat
 
-    cfg.MODEL.THRESH = [float(x) for x in args.thresh.split(',')]
-    cfg.MODEL.SEM_THRESH = [float(x) for x in args.sem_thresh.split(',')]
+    if args.thresh is not None:
+        cfg.MODEL.THRESH = [float(x) for x in args.thresh.split(',')]
+        cfg.MODEL.SEM_THRESH = [float(x) for x in args.sem_thresh.split(',')]
     cfg.MODEL.UNLABELED_SUPERVISE_CLS = args.unlabeled_supervise_cls
     cfg.MODEL.UNLABELED_SUPERVISE_REFINE = args.unlabeled_supervise_refine
     cfg.MODEL.UNLABELED_WEIGHT = args.unlabeled_weight

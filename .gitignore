@@ -9,10 +9,18 @@ venv/
 *.zip
 *.pkl
 *.bin
-data/kitti/training/
-data/kitti/testing/
 work_dirs/
 output/
 demo/
-data/nuscenes/v1.0-trainval/v1.0-trainval/*
+gt_database*
+
+data/kitti/training/
+data/kitti/testing/
+data/nuscenes/v1.0-trainval/v1.0-trainval
+data/nuscenes/v1.0-trainval/maps
+data/nuscenes/v1.0-trainval/samples
+data/nuscenes/v1.0-trainval/sweeps
+data/omega/v0.5-omega-trainval/data
+data/omega/v0.5-omega-trainval/maps
+data/omega/v0.5-omega-trainval/v0.5-omega-trainval
 

@@ -14,8 +14,10 @@ class PVRCNN(Detector3DTemplate):
             for b in range(b_size):
                 points = batch_dict['points'][batch_dict['points'][:, 0] == b][:, 1:4].cpu().numpy()
                 gt_boxes = batch_dict['gt_boxes'][b].cpu().numpy()
+                gt_boxes[:, 6] = -gt_boxes[:, 6].copy()
                 det = nuscene_vis(points, gt_boxes)
                 cv2.imwrite('test_%02d.png' % b, det)
+            breakpoint()
 
         for cur_module in self.module_list:
             batch_dict = cur_module(batch_dict)

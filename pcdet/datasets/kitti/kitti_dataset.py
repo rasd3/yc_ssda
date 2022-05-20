@@ -19,6 +19,7 @@ class KittiDataset(DatasetTemplate):
             training:
             logger:
         """
+        import pdb; pdb.set_trace()
         super().__init__(
             dataset_cfg=dataset_cfg, class_names=class_names, training=training, root_path=root_path, logger=logger
         )
