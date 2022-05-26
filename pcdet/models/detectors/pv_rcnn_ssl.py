@@ -46,12 +46,12 @@ class PVRCNN_SSL(Detector3DTemplate):
             import cv2
             b_size = batch_dict['gt_boxes'].shape[0]
             for b in range(b_size):
-                points = batch_dict['points'][batch_dict['points'][:, 0] == b][:, 1:4].cpu().numpy()
+                points = batch_dict['points'][batch_dict['points'][:, 0] ==
+                                              b][:, 1:4].cpu().numpy()
                 gt_boxes = batch_dict['gt_boxes'][b].cpu().numpy().copy()
                 gt_boxes[:, 6] = -gt_boxes[:, 6]
                 det = nuscene_vis(points, gt_boxes)
                 cv2.imwrite('test_%02d.png' % b, det)
-            breakpoint()
 
         if self.training:
             mask = batch_dict['mask'].view(-1)

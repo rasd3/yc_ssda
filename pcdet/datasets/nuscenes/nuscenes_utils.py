@@ -639,7 +639,7 @@ def fill_trainval_infos(data_path,
             info['num_lidar_pts'] = num_lidar_pts[mask]
             info['num_radar_pts'] = num_radar_pts[mask]
 
-        if True:
+        if False:
             # for visualization
             point_vis(info)
 

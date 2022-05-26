@@ -20,7 +20,7 @@ __all__ = {
     'OmegaDatasetSSL': OmegaDatasetSSL,
 }
 
-class DADatasetSSL(torch_data.Dataset):
+class DADatasetSSDA(torch_data.Dataset):
     def __init__(self, dataset_cfg, class_names, training=True, root_path=None, logger=None):
         self.dataset_cfg = dataset_cfg
         self.training = training

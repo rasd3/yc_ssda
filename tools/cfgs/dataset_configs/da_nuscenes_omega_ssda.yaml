@@ -1,4 +1,4 @@
-DATASET: 'DADatasetSSL'
+DATASET: 'DADatasetSSDA'
 
 DATA_SPLIT: {
     'train': train,
@@ -24,7 +24,6 @@ TRG_DATASET:
     REPEAT: 1
     DATA_PATH: '../data/omega'
     VERSION: 'v0.5-omega-trainval'
-    SHIFT_COOR: [0.0, 0.0, 1.8]
     MAX_SWEEPS: 1
     PRED_VELOCITY: False
     BALANCED_RESAMPLING: False

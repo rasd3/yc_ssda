@@ -13,9 +13,8 @@ work_dirs/
 output/
 demo/
 gt_database*
-
-data/kitti/training/
-data/kitti/testing/
+data/kitti/training
+data/kitti/testing
 data/nuscenes/v1.0-trainval/v1.0-trainval
 data/nuscenes/v1.0-trainval/maps
 data/nuscenes/v1.0-trainval/samples

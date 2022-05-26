@@ -29,6 +29,7 @@ class NuScenesDataset(DatasetTemplate):
         self.infos = []
         self.include_nuscenes_data(self.mode)
         self.repeat = self.dataset_cfg.REPEAT
+        self.shift_coor = self.dataset_cfg.get('SHIFT_COOR', None)
         if self.training and self.dataset_cfg.get('BALANCED_RESAMPLING',
                                                   False):
             self.infos = self.balanced_infos_resampling(self.infos)
@@ -154,6 +155,9 @@ class NuScenesDataset(DatasetTemplate):
         points = self.get_lidar_with_sweeps(
             index, max_sweeps=self.dataset_cfg.MAX_SWEEPS)
 
+        if self.shift_coor:
+            points[:, :3] += np.array(self.shift_coor, dtype=np.float32)
+
         input_dict = {
             'points': points,
             'frame_id': Path(info['lidar_path']).stem,
@@ -169,6 +173,9 @@ class NuScenesDataset(DatasetTemplate):
             else:
                 mask = None
 
+            if self.shift_coor:
+                info['gt_boxes'][:, :3] += self.shift_coor
+                
             input_dict.update({
                 'gt_names':
                 info['gt_names'] if mask is None else info['gt_names'][mask],

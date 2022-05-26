@@ -2,7 +2,7 @@ CLASS_NAMES: ['car', 'truck', 'bus',
               'motorcycle', 'pedestrian']
 
 DATA_CONFIG:
-    _BASE_CONFIG_: cfgs/dataset_configs/da_nuscenes_omega_ssl.yaml
+    _BASE_CONFIG_: cfgs/dataset_configs/da_nuscenes_omega_ssda.yaml
     DATA_PATH: '../data/omega'
     VERSION: 'v0.5-omega-trainval'
     # TARGET: True

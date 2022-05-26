@@ -7,6 +7,7 @@ DATA_CONFIG:
     VERSION: 'v0.5-omega-trainval'
     # TARGET: True
     SHIFT_COOR: [0.0, 0.0, 1.8]
+    REPEAT: 1
     MAX_SWEEPS: 1
     PRED_VELOCITY: False
     BALANCED_RESAMPLING: False
@@ -236,9 +237,9 @@ MODEL:
 
 
 OPTIMIZATION:
-    BATCH_SIZE_PER_GPU: 2
+    BATCH_SIZE_PER_GPU: 4
     EVAL_BATCH_SIZE_PER_GPU: 8
-    NUM_EPOCHS: 50
+    NUM_EPOCHS: 20
 
     OPTIMIZER: adam_onecycle
     LR: 0.01

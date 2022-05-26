@@ -9,6 +9,7 @@ DATA_CONFIG:
                   'barrier', 'motorcycle', 'bicycle', 'pedestrian', 'traffic_cone']
     SHIFT_COOR: [0.0, 0.0, 1.8]
     MAX_SWEEPS: 10
+    REPEAT: 1
     PRED_VELOCITY: False
     BALANCED_RESAMPLING: True
     INFO_PATH: {

@@ -54,6 +54,7 @@ class PVRCNNHead(RoIHeadTemplate):
         self.init_weights(weight_init='xavier')
 
         self.print_loss_when_eval = False
+        self.batch_size = None
 
     def init_weights(self, weight_init='xavier'):
         if weight_init == 'kaiming':
@@ -152,6 +153,7 @@ class PVRCNNHead(RoIHeadTemplate):
         :return:
         """
 
+        self.batch_size = batch_dict['batch_size']
         # use test-time nms for pseudo label generation
         targets_dict = self.proposal_layer(
             batch_dict, nms_config=self.model_cfg.NMS_CONFIG['TRAIN' if self.training and not disable_gt_roi_when_pseudo_labeling else 'TEST']
