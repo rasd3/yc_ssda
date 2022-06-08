@@ -32,6 +32,7 @@ class NuScenesDatasetSSL(DatasetTemplate):
         #  self.test_infos = []
         self.repeat = self.dataset_cfg.REPEAT
         self.include_nuscenes_data(self.mode)
+        self.shift_coor = self.dataset_cfg.get('SHIFT_COOR', None)
         #  if self.training and self.dataset_cfg.get('BALANCED_RESAMPLING', False):
         #  self.labeled_infos = self.balanced_infos_resampling(self.labeled_infos)
 
@@ -165,6 +166,8 @@ class NuScenesDatasetSSL(DatasetTemplate):
         info = copy.deepcopy(self.labeled_infos[index])
         points = self.get_lidar_with_sweeps(
             info, max_sweeps=self.dataset_cfg.MAX_SWEEPS)
+        if self.shift_coor:
+            points[:, :3] += np.array(self.shift_coor, dtype=np.float32)
 
         if self.dataset_cfg.get('SHIFT_COOR', None):
             points[:, 0:3] += np.array(self.dataset_cfg.SHIFT_COOR,
@@ -185,6 +188,8 @@ class NuScenesDatasetSSL(DatasetTemplate):
             else:
                 mask = None
 
+            if self.shift_coor:
+                info['gt_boxes'][:, :3] += self.shift_coor
             input_dict.update({
                 'gt_names':
                 info['gt_names'] if mask is None else info['gt_names'][mask],

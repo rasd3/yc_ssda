@@ -29,6 +29,7 @@ class NuScenesDataset(DatasetTemplate):
         self.infos = []
         self.include_nuscenes_data(self.mode)
         self.repeat = self.dataset_cfg.REPEAT
+        self.shift_coor = self.dataset_cfg.get('SHIFT_COOR', None)
         if self.training and self.dataset_cfg.get('BALANCED_RESAMPLING',
                                                   False):
             self.infos = self.balanced_infos_resampling(self.infos)
@@ -154,9 +155,8 @@ class NuScenesDataset(DatasetTemplate):
         points = self.get_lidar_with_sweeps(
             index, max_sweeps=self.dataset_cfg.MAX_SWEEPS)
 
-        if self.dataset_cfg.get('SHIFT_COOR', None):
-            points[:, 0:3] += np.array(self.dataset_cfg.SHIFT_COOR,
-                                       dtype=np.float32)
+        if self.shift_coor:
+            points[:, :3] += np.array(self.shift_coor, dtype=np.float32)
 
         input_dict = {
             'points': points,
@@ -173,6 +173,9 @@ class NuScenesDataset(DatasetTemplate):
             else:
                 mask = None
 
+            if self.shift_coor:
+                info['gt_boxes'][:, :3] += self.shift_coor
+                
             input_dict.update({
                 'gt_names':
                 info['gt_names'] if mask is None else info['gt_names'][mask],
@@ -180,8 +183,6 @@ class NuScenesDataset(DatasetTemplate):
                 info['gt_boxes'] if mask is None else info['gt_boxes'][mask]
             })
 
-            if self.dataset_cfg.get('SHIFT_COOR', None):
-                input_dict['gt_boxes'][:, 0:3] += self.dataset_cfg.SHIFT_COOR
 
         if self.dataset_cfg.get('FOV_POINTS_ONLY', None):
             input_dict['points'] = self.extract_fov_data(
@@ -260,8 +261,8 @@ class NuScenesDataset(DatasetTemplate):
             if pred_scores.shape[0] == 0:
                 return pred_dict
 
-            if self.dataset_cfg.get('SHIFT_COOR', None):
-                pred_boxes[:, 0:3] -= self.dataset_cfg.SHIFT_COOR
+            if self.shift_coor:
+                points[:, :3] -= np.array(self.shift_coor, dtype=np.float32)
 
             pred_dict['name'] = np.array(class_names)[pred_labels - 1]
             pred_dict['score'] = pred_scores

@@ -19,6 +19,7 @@ class DatasetTemplate(torch_data.Dataset):
                  root_path=None,
                  logger=None):
         super().__init__()
+        
         self.dataset_cfg = dataset_cfg
         self.training = training
         self.class_names = class_names

@@ -19,6 +19,7 @@ class PointHeadSimple(PointHeadTemplate):
         )
 
         self.print_loss_when_eval = False
+        self.batch_size = None
 
     def assign_targets(self, input_dict):
         """
@@ -38,6 +39,7 @@ class PointHeadSimple(PointHeadTemplate):
         assert point_coords.shape.__len__() in [2], 'points.shape=%s' % str(point_coords.shape)
 
         batch_size = gt_boxes.shape[0]
+        self.batch_size = batch_size
         extend_gt_boxes = box_utils.enlarge_box3d(
             gt_boxes.view(-1, gt_boxes.shape[-1]), extra_width=self.model_cfg.TARGET_CONFIG.GT_EXTRA_WIDTH
         ).view(batch_size, -1, gt_boxes.shape[-1])

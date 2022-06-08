@@ -49,9 +49,8 @@ class OmegaDatasetSSL(NuScenesDatasetSSL):
         info = copy.deepcopy(self.labeled_infos[index])
         points = self.get_lidar_with_sweeps(info, max_sweeps=self.dataset_cfg.MAX_SWEEPS)
 
-        if self.dataset_cfg.get('SHIFT_COOR', None):
-            points[:, 0:3] += np.array(self.dataset_cfg.SHIFT_COOR,
-                                       dtype=np.float32)
+        if self.shift_coor:
+            points[:, :3] += np.array(self.shift_coor, dtype=np.float32)
 
         input_dict = {
             'points': points,
@@ -65,6 +64,8 @@ class OmegaDatasetSSL(NuScenesDatasetSSL):
             else:
                 mask = None
 
+            if self.shift_coor:
+                info['gt_boxes'][:, :3] += self.shift_coor
             input_dict.update({
                 'gt_names': info['gt_names'] if mask is None else info['gt_names'][mask],
                 'gt_boxes': info['gt_boxes'] if mask is None else info['gt_boxes'][mask]

@@ -8,6 +8,7 @@ DATA_CONFIG:
     PRED_VELOCITY: False
     REPEAT: 1
 
+    REPEAT: 1
     MAX_SWEEPS: 10
     INFO_PATH: {
         'train': [nuscenes_infos_10sweeps_train.pkl],
