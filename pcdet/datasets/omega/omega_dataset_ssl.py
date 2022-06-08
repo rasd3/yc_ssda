@@ -49,6 +49,10 @@ class OmegaDatasetSSL(NuScenesDatasetSSL):
         info = copy.deepcopy(self.labeled_infos[index])
         points = self.get_lidar_with_sweeps(info, max_sweeps=self.dataset_cfg.MAX_SWEEPS)
 
+        if self.dataset_cfg.get('SHIFT_COOR', None):
+            points[:, 0:3] += np.array(self.dataset_cfg.SHIFT_COOR,
+                                       dtype=np.float32)
+
         input_dict = {
             'points': points,
             'frame_id': Path(info['lidar_path']).stem,
@@ -65,21 +69,25 @@ class OmegaDatasetSSL(NuScenesDatasetSSL):
                 'gt_names': info['gt_names'] if mask is None else info['gt_names'][mask],
                 'gt_boxes': info['gt_boxes'] if mask is None else info['gt_boxes'][mask]
             })
+            if self.dataset_cfg.get('SHIFT_COOR', None):
+                input_dict['gt_boxes'][:, 0:3] += self.dataset_cfg.SHIFT_COOR
 
-        if False:
-            import cv2
-            gt_boxes = input_dict['gt_boxes'].copy()
-            gt_boxes[:, 6] = -gt_boxes[:, 6]
-            bev_map = nuscene_vis(input_dict['points'], boxes=gt_boxes)
-            cv2.imwrite('test_sex_1bef.png', bev_map)
+        if self.dataset_cfg.get('FOV_POINTS_ONLY', None):
+            input_dict['points'] = self.extract_fov_data(
+                input_dict['points'], self.dataset_cfg.FOV_DEGREE,
+                self.dataset_cfg.FOV_ANGLE)
+            if input_dict['gt_boxes'] is not None:
+                fov_gt_flag = self.extract_fov_gt(input_dict['gt_boxes'],
+                                                  self.dataset_cfg.FOV_DEGREE,
+                                                  self.dataset_cfg.FOV_ANGLE)
+                input_dict.update({
+                    'gt_names':
+                    input_dict['gt_names'][fov_gt_flag],
+                    'gt_boxes':
+                    input_dict['gt_boxes'][fov_gt_flag],
+                })
+
         data_dict = self.prepare_data(data_dict=input_dict)
-        if False:
-            import cv2
-            gt_boxes = data_dict['gt_boxes'].copy()
-            gt_boxes[:, 6] = -gt_boxes[:, 6]
-            bev_map = nuscene_vis(data_dict['points'], boxes=gt_boxes)
-            cv2.imwrite('test_sex_2aft.png', bev_map)
-            breakpoint()
 
         if self.dataset_cfg.get('SET_NAN_VELOCITY_TO_ZEROS', False):
             gt_boxes = data_dict['gt_boxes']
@@ -108,20 +116,7 @@ class OmegaDatasetSSL(NuScenesDatasetSSL):
                     'gt_names': info_unlabeled['gt_names'] if mask is None else info_unlabeled['gt_names'][mask],
                     'gt_boxes': info_unlabeled['gt_boxes'] if mask is None else info_unlabeled['gt_boxes'][mask]
                 })
-            if False:
-                import cv2
-                gt_boxes = unlabeled_input_dict['gt_boxes'].copy()
-                gt_boxes[:, 6] = -gt_boxes[:, 6]
-                bev_map = nuscene_vis(unlabeled_input_dict['points'], boxes=gt_boxes)
-                cv2.imwrite('test_sex_1bef.png', bev_map)
             unlabeled_data_dict = self.prepare_data(data_dict=unlabeled_input_dict)
-            if False:
-                import cv2
-                gt_boxes = unlabeled_data_dict['gt_boxes'].copy()
-                gt_boxes[:, 6] = -gt_boxes[:, 6]
-                bev_map = nuscene_vis(unlabeled_data_dict['points'], boxes=gt_boxes)
-                cv2.imwrite('test_sex_2aft.png', bev_map)
-                breakpoint()
 
             if self.dataset_cfg.get('SET_NAN_VELOCITY_TO_ZEROS', False):
                 gt_boxes = unlabeled_data_dict['gt_boxes']
@@ -304,6 +299,8 @@ class OmegaDatasetSSL(NuScenesDatasetSSL):
             pred_dict = get_template_prediction(pred_scores.shape[0])
             if pred_scores.shape[0] == 0:
                 return pred_dict
+            if self.dataset_cfg.get('SHIFT_COOR', None):
+                pred_boxes[:, 0:3] -= self.dataset_cfg.SHIFT_COOR
 
             pred_dict['name'] = np.array(class_names)[pred_labels - 1]
             pred_dict['score'] = pred_scores

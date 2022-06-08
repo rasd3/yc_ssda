@@ -154,6 +154,10 @@ class NuScenesDataset(DatasetTemplate):
         points = self.get_lidar_with_sweeps(
             index, max_sweeps=self.dataset_cfg.MAX_SWEEPS)
 
+        if self.dataset_cfg.get('SHIFT_COOR', None):
+            points[:, 0:3] += np.array(self.dataset_cfg.SHIFT_COOR,
+                                       dtype=np.float32)
+
         input_dict = {
             'points': points,
             'frame_id': Path(info['lidar_path']).stem,
@@ -175,6 +179,24 @@ class NuScenesDataset(DatasetTemplate):
                 'gt_boxes':
                 info['gt_boxes'] if mask is None else info['gt_boxes'][mask]
             })
+
+            if self.dataset_cfg.get('SHIFT_COOR', None):
+                input_dict['gt_boxes'][:, 0:3] += self.dataset_cfg.SHIFT_COOR
+
+        if self.dataset_cfg.get('FOV_POINTS_ONLY', None):
+            input_dict['points'] = self.extract_fov_data(
+                input_dict['points'], self.dataset_cfg.FOV_DEGREE,
+                self.dataset_cfg.FOV_ANGLE)
+            if input_dict['gt_boxes'] is not None:
+                fov_gt_flag = self.extract_fov_gt(input_dict['gt_boxes'],
+                                                  self.dataset_cfg.FOV_DEGREE,
+                                                  self.dataset_cfg.FOV_ANGLE)
+                input_dict.update({
+                    'gt_names':
+                    input_dict['gt_names'][fov_gt_flag],
+                    'gt_boxes':
+                    input_dict['gt_boxes'][fov_gt_flag],
+                })
 
         if False:
             import cv2
@@ -203,8 +225,8 @@ class NuScenesDataset(DatasetTemplate):
 
         return data_dict
 
-    @staticmethod
-    def generate_prediction_dicts(batch_dict,
+    def generate_prediction_dicts(self,
+                                  batch_dict,
                                   pred_dicts,
                                   class_names,
                                   output_path=None):
@@ -237,6 +259,9 @@ class NuScenesDataset(DatasetTemplate):
             pred_dict = get_template_prediction(pred_scores.shape[0])
             if pred_scores.shape[0] == 0:
                 return pred_dict
+
+            if self.dataset_cfg.get('SHIFT_COOR', None):
+                pred_boxes[:, 0:3] -= self.dataset_cfg.SHIFT_COOR
 
             pred_dict['name'] = np.array(class_names)[pred_labels - 1]
             pred_dict['score'] = pred_scores
@@ -519,11 +544,9 @@ def create_nuscenes_info(version, data_path, save_path, max_sweeps=10):
     elif version == 'v1.0-mini':
         print('train sample: %d, val sample: %d' %
               (len(train_nusc_infos), len(val_nusc_infos)))
-        with open(save_path / f'nuscenes_infos_mini_train.pkl',
-                  'wb') as f:
+        with open(save_path / f'nuscenes_infos_mini_train.pkl', 'wb') as f:
             pickle.dump(train_nusc_infos, f)
-        with open(save_path / f'nuscenes_infos_mini_val.pkl',
-                  'wb') as f:
+        with open(save_path / f'nuscenes_infos_mini_val.pkl', 'wb') as f:
             pickle.dump(val_nusc_infos, f)
     else:
         print('train sample: %d, val sample: %d' %

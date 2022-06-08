@@ -208,3 +208,42 @@ class DatasetTemplate(torch_data.Dataset):
 
         ret['batch_size'] = batch_size
         return ret
+
+    @staticmethod
+    def extract_fov_data(points, fov_degree, heading_angle):
+        """
+        Args:
+            points: (N, 3 + C)
+            fov_degree: [0~180]
+            heading_angle: [0~360] in lidar coords, 0 is the x-axis, increase clockwise
+        Returns:
+        """
+        half_fov_degree = fov_degree / 180 * np.pi / 2
+        heading_angle = -heading_angle / 180 * np.pi
+        points_new = common_utils.rotate_points_along_z(
+            points.copy()[np.newaxis, :, :], np.array([heading_angle])
+        )[0]
+        angle = np.arctan2(points_new[:, 1], points_new[:, 0])
+        fov_mask = ((np.abs(angle) < half_fov_degree) & (points_new[:, 0] > 0))
+        points = points_new[fov_mask]
+        return points
+
+    @staticmethod
+    def extract_fov_gt(gt_boxes, fov_degree, heading_angle):
+        """
+        Args:
+            anno_dict:
+            fov_degree: [0~180]
+            heading_angle: [0~360] in lidar coords, 0 is the x-axis, increase clockwise
+        Returns:
+        """
+        half_fov_degree = fov_degree / 180 * np.pi / 2
+        heading_angle = -heading_angle / 180 * np.pi
+        gt_boxes_lidar = copy.deepcopy(gt_boxes)
+        gt_boxes_lidar = common_utils.rotate_points_along_z(
+            gt_boxes_lidar[np.newaxis, :, :], np.array([heading_angle])
+        )[0]
+        gt_boxes_lidar[:, 6] += heading_angle
+        gt_angle = np.arctan2(gt_boxes_lidar[:, 1], gt_boxes_lidar[:, 0])
+        fov_gt_mask = ((np.abs(gt_angle) < half_fov_degree) & (gt_boxes_lidar[:, 0] > 0))
+        return fov_gt_mask
