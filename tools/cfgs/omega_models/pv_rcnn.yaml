@@ -6,7 +6,7 @@ DATA_CONFIG:
     DATA_PATH: '../data/omega'
     VERSION: 'v0.5-omega-trainval'
     # TARGET: True
-    SHIFT_COOR: [0.0, 0.0, 1.8]
+    # SHIFT_COOR: [0.0, 0.0, 1.8]
     REPEAT: 1
     MAX_SWEEPS: 1
     PRED_VELOCITY: False

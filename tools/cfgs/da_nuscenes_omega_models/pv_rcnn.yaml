@@ -4,7 +4,7 @@ DATA_CONFIG:
     _BASE_CONFIG_: cfgs/dataset_configs/da_nuscenes_omega_dataset.yaml
     CLASS_NAMES: ['car', 'truck', 'bus', 'motorcycle', 'pedestrian']
 
-    # SHIFT_COOR: [0.0, 0.0, 1.8]
+    SHIFT_COOR: [0.0, 0.0, 1.8]
     PRED_VELOCITY: False
     REPEAT: 1
 

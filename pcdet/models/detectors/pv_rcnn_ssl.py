@@ -42,7 +42,7 @@ class PVRCNN_SSL(Detector3DTemplate):
         self.supervise_mode = model_cfg.SUPERVISE_MODE
 
     def forward(self, batch_dict):
-        if True:
+        if False:
             import cv2
             b_size = batch_dict['gt_boxes'].shape[0]
             for b in range(b_size):
@@ -312,7 +312,6 @@ class PVRCNN_SSL(Detector3DTemplate):
             return ret_dict, tb_dict_, disp_dict
 
         else:
-            breakpoint()
             for cur_module in self.pv_rcnn.module_list:
                 batch_dict = cur_module(batch_dict)
 
