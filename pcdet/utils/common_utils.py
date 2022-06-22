@@ -39,6 +39,8 @@ def rotate_points_along_z(points, angle):
     Returns:
 
     """
+    if type(angle) is not torch.Tensor:
+        angle = torch.tensor(angle).clone()
     points, is_numpy = check_numpy_to_torch(points)
     angle, _ = check_numpy_to_torch(angle)
 

@@ -199,21 +199,7 @@ class NuScenesDataset(DatasetTemplate):
                     input_dict['gt_boxes'][fov_gt_flag],
                 })
 
-        if False:
-            import cv2
-            gt_boxes = input_dict['gt_boxes'].copy()
-            gt_boxes[:, 6] = -gt_boxes[:, 6]
-            bev_map = nuscene_vis(input_dict['points'], boxes=gt_boxes)
-            cv2.imwrite('test_sex_1bef.png', bev_map)
-
         data_dict = self.prepare_data(data_dict=input_dict)
-        if False:
-            import cv2
-            gt_boxes = data_dict['gt_boxes'].copy()
-            gt_boxes[:, 6] = -gt_boxes[:, 6]
-            bev_map = nuscene_vis(data_dict['points'], boxes=gt_boxes)
-            cv2.imwrite('test_sex_2aft.png', bev_map)
-            breakpoint()
 
         if self.dataset_cfg.get('SET_NAN_VELOCITY_TO_ZEROS', False):
             gt_boxes = data_dict['gt_boxes']

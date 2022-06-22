@@ -46,6 +46,20 @@ class DataAugmentor(object):
     def __setstate__(self, d):
         self.__dict__.update(d)
    
+    def random_object_scaling(self, data_dict=None, config=None):
+        if data_dict is None:
+            return partial(self.random_object_scaling, config=config)
+        points, gt_boxes = augmentor_utils.scale_pre_object(
+            data_dict['gt_boxes'], data_dict['points'],
+            gt_boxes_mask=data_dict['gt_boxes_mask'],
+            scale_perturb=config['SCALE_UNIFORM_NOISE']
+        )
+
+        data_dict['gt_boxes'] = gt_boxes
+        data_dict['points'] = points
+        return data_dict
+
+
     def random_world_flip(self, data_dict=None, config=None):
         if data_dict is None:
             return partial(self.random_world_flip, config=config)
