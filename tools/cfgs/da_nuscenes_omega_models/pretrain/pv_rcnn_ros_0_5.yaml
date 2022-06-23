@@ -14,6 +14,7 @@ DATA_CONFIG:
         'test': [nuscenes_infos_10sweeps_val_train_0.50_1.pkl],
     }
     DATA_AUGMENTOR:
+        # DISABLE_AUG_LIST: ['random_world_flip', 'random_world_rotation', 'random_world_scaling', 'gt_sampling']
         DISABLE_AUG_LIST: []
         AUG_CONFIG_LIST:
             - NAME: gt_sampling
