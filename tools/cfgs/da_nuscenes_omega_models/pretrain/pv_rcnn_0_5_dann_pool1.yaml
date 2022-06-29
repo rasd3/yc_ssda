@@ -1,7 +1,7 @@
 CLASS_NAMES: ['car', 'truck', 'bus', 'motorcycle', 'pedestrian']
 
 DATA_CONFIG:
-    _BASE_CONFIG_: cfgs/dataset_configs/da_nuscenes_omega_dataset.yaml
+    _BASE_CONFIG_: cfgs/dataset_configs/da_nuscenes_omega_dann_dataset.yaml
     CLASS_NAMES: ['car', 'truck', 'bus', 'motorcycle', 'pedestrian']
 
     SHIFT_COOR: [0.0, 0.0, 1.8]
@@ -64,6 +64,14 @@ MODEL:
 
     BACKBONE_2D:
         NAME: BaseBEVBackbone
+
+        USE_DOMAIN_CLASSIFIER: True
+        DC_VERSION: POOL_1
+        LOSS_CONFIG:
+            LOSS_DC: NLL
+            LOSS_WEIGHTS: {
+                'dc_weight': 1.0,
+            }
 
         LAYER_NUMS: [5, 5]
         LAYER_STRIDES: [1, 2]
@@ -270,7 +278,7 @@ MODEL:
 
 
 OPTIMIZATION:
-    BATCH_SIZE_PER_GPU: 2
+    BATCH_SIZE_PER_GPU: 1
     EVAL_BATCH_SIZE_PER_GPU: 8
     NUM_EPOCHS: 20
 

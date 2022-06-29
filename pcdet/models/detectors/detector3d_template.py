@@ -97,7 +97,7 @@ class Detector3DTemplate(nn.Module):
             input_channels=model_info_dict['num_bev_features']
         )
         model_info_dict['module_list'].append(backbone_2d_module)
-        model_info_dict['num_bev_features'] = backbone_2d_module.num_bev_features
+        model_info_dict['num_backbone2d_features'] = backbone_2d_module.num_bev_features
         return backbone_2d_module, model_info_dict
 
     def build_pfe(self, model_info_dict):
@@ -114,6 +114,7 @@ class Detector3DTemplate(nn.Module):
         model_info_dict['module_list'].append(pfe_module)
         model_info_dict['num_point_features'] = pfe_module.num_point_features
         model_info_dict['num_point_features_before_fusion'] = pfe_module.num_point_features_before_fusion
+        model_info_dict['num_bev_features'] = model_info_dict['num_backbone2d_features']
         return pfe_module, model_info_dict
 
     def build_dense_head(self, model_info_dict):

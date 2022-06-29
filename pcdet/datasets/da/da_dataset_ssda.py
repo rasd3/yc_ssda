@@ -22,6 +22,8 @@ __all__ = {
 }
 
 class DADatasetSSDA(torch_data.Dataset):
+    """
+    """
     def __init__(self, dataset_cfg, class_names, training=True, root_path=None, logger=None):
         self.dataset_cfg = dataset_cfg
         self.training = training
@@ -191,5 +193,98 @@ class DADatasetSSDA(torch_data.Dataset):
             return self.trg_dataset.kitti_eval(eval_det_annos, eval_gt_annos, class_names)
         elif kwargs['eval_metric'] == 'nuscenes':
             return self.trg_dataset.nuscene_eval(det_annos, class_names, **kwargs)
+        else:
+            raise NotImplementedError
+
+class DADatasetDANN(DADatasetSSDA):
+    """ Made for DANN training
+    target dataset only use on domain adversarial training (only input)
+    """
+    def __init__(self, dataset_cfg, class_names, training=True, root_path=None, logger=None):
+        super().__init__(dataset_cfg=dataset_cfg,
+                         class_names=class_names,
+                         training=training,
+                         root_path=root_path,
+                         logger=logger)
+        self.point_feature_encoder = self.src_dataset.point_feature_encoder
+        self.point_cloud_range = self.src_dataset.point_cloud_range
+        self.grid_size = self.src_dataset.grid_size
+        self.voxel_size = self.src_dataset.voxel_size
+
+    def __len__(self):
+        if self.training:
+            return len(self.src_dataset.infos) * self.repeat
+        else:
+            return len(self.src_dataset.infos)
+
+    def __getitem__(self, index):
+        src_item = self.src_dataset.__getitem__(index)
+        if self.training:
+            # SL, TL(for only DANN)
+            trg_item = self.trg_dataset.__getitem__(index)
+            return [src_item, trg_item]
+        else:
+            # SL
+            return src_item
+
+    @staticmethod
+    def collate_batch(batch_list, _unused=False):
+        data_dict = defaultdict(list)
+        if isinstance(batch_list[0], list):
+            for cur_sample in batch_list:
+                for key, val in cur_sample[0].items():
+                    data_dict[key].append(val)
+                for key, val in cur_sample[1].items():
+                    data_dict[key].append(val)
+            batch_size = len(batch_list) * 2
+        else:
+            for cur_sample in batch_list:
+                for key, val in cur_sample.items():
+                    data_dict[key].append(val)
+            batch_size = len(batch_list)
+        ret = {}
+
+        for key, val in data_dict.items():
+            try:
+                if key in [
+                        'voxels', 'voxel_num_points', 'voxels_ema',
+                        'voxel_num_points_ema'
+                ]:
+                    ret[key] = np.concatenate(val, axis=0)
+                elif key in [
+                        'points', 'voxel_coords', 'points_ema',
+                        'voxel_coords_ema'
+                ]:
+                    coors = []
+                    for i, coor in enumerate(val):
+                        coor_pad = np.pad(coor, ((0, 0), (1, 0)),
+                                          mode='constant',
+                                          constant_values=i)
+                        coors.append(coor_pad)
+                    ret[key] = np.concatenate(coors, axis=0)
+                elif key in ['gt_boxes', 'gt_boxes_ema']:
+                    max_gt = max([len(x) for x in val])
+                    batch_gt_boxes3d = np.zeros(
+                        (batch_size, max_gt, val[0].shape[-1]),
+                        dtype=np.float32)
+                    for k in range(batch_size):
+                        batch_gt_boxes3d[k, :val[k].__len__(), :] = val[k]
+                    ret[key] = batch_gt_boxes3d
+                else:
+                    ret[key] = np.stack(val, axis=0)
+            except:
+                print('Error in collate_batch: key=%s' % key)
+                raise TypeError
+
+        ret['batch_size'] = batch_size
+        return ret
+
+    def evaluation(self, det_annos, class_names, **kwargs):
+        if kwargs['eval_metric'] == 'kitti':
+            eval_det_annos = copy.deepcopy(det_annos)
+            eval_gt_annos = copy.deepcopy(self.src_dataset.infos)
+            return self.src_dataset.kitti_eval(eval_det_annos, eval_gt_annos, class_names)
+        elif kwargs['eval_metric'] == 'nuscenes':
+            return self.src_dataset.nuscene_eval(det_annos, class_names, **kwargs)
         else:
             raise NotImplementedError

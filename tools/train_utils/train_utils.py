@@ -7,12 +7,20 @@ from torch.nn.utils import clip_grad_norm_
 
 
 def train_one_epoch(model, optimizer, train_loader, model_func, lr_scheduler, accumulated_iter, optim_cfg,
-                    rank, tbar, total_it_each_epoch, dataloader_iter, tb_log=None, leave_pbar=False):
+                    rank, tbar, total_it_each_epoch, dataloader_iter, tb_log=None, leave_pbar=False,
+                    cur_epoch=0, total_epochs=0,
+                    ):
     if total_it_each_epoch == len(train_loader):
         dataloader_iter = iter(train_loader)
 
     if rank == 0:
         pbar = tqdm.tqdm(total=total_it_each_epoch, leave=leave_pbar, desc='train', dynamic_ncols=True)
+
+    cur_train_dict = {
+        'cur_epoch': cur_epoch,
+        'total_epochs': total_epochs,
+        'total_it_each_epoch': total_it_each_epoch,
+    }
 
     for cur_it in range(total_it_each_epoch):
         try:
@@ -34,6 +42,9 @@ def train_one_epoch(model, optimizer, train_loader, model_func, lr_scheduler, ac
 
         model.train()
         optimizer.zero_grad()
+
+        cur_train_dict['cur_it'] = cur_it
+        batch['cur_train_meta'] = cur_train_dict
 
         loss, tb_dict, disp_dict = model_func(model, batch)
 
@@ -91,7 +102,9 @@ def train_model(model, optimizer, train_loader, model_func, lr_scheduler, optim_
                 rank=rank, tbar=tbar, tb_log=tb_log,
                 leave_pbar=(cur_epoch + 1 == total_epochs),
                 total_it_each_epoch=total_it_each_epoch,
-                dataloader_iter=dataloader_iter
+                dataloader_iter=dataloader_iter,
+                cur_epoch=cur_epoch,
+                total_epochs=total_epochs,
             )
 
             # save trained model

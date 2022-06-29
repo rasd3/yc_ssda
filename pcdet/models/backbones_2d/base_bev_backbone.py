@@ -1,15 +1,20 @@
 import numpy as np
 import torch
 import torch.nn as nn
+from torch.nn import functional as F
+from .domain_classifier import model_dict as dc_model_dict
 
 
 class BaseBEVBackbone(nn.Module):
+
     def __init__(self, model_cfg, input_channels):
         super().__init__()
         self.model_cfg = model_cfg
 
         if self.model_cfg.get('LAYER_NUMS', None) is not None:
-            assert len(self.model_cfg.LAYER_NUMS) == len(self.model_cfg.LAYER_STRIDES) == len(self.model_cfg.NUM_FILTERS)
+            assert len(self.model_cfg.LAYER_NUMS) == len(
+                self.model_cfg.LAYER_STRIDES) == len(
+                    self.model_cfg.NUM_FILTERS)
             layer_nums = self.model_cfg.LAYER_NUMS
             layer_strides = self.model_cfg.LAYER_STRIDES
             num_filters = self.model_cfg.NUM_FILTERS
@@ -17,7 +22,8 @@ class BaseBEVBackbone(nn.Module):
             layer_nums = layer_strides = num_filters = []
 
         if self.model_cfg.get('UPSAMPLE_STRIDES', None) is not None:
-            assert len(self.model_cfg.UPSAMPLE_STRIDES) == len(self.model_cfg.NUM_UPSAMPLE_FILTERS)
+            assert len(self.model_cfg.UPSAMPLE_STRIDES) == len(
+                self.model_cfg.NUM_UPSAMPLE_FILTERS)
             num_upsample_filters = self.model_cfg.NUM_UPSAMPLE_FILTERS
             upsample_strides = self.model_cfg.UPSAMPLE_STRIDES
         else:
@@ -30,16 +36,22 @@ class BaseBEVBackbone(nn.Module):
         for idx in range(num_levels):
             cur_layers = [
                 nn.ZeroPad2d(1),
-                nn.Conv2d(
-                    c_in_list[idx], num_filters[idx], kernel_size=3,
-                    stride=layer_strides[idx], padding=0, bias=False
-                ),
+                nn.Conv2d(c_in_list[idx],
+                          num_filters[idx],
+                          kernel_size=3,
+                          stride=layer_strides[idx],
+                          padding=0,
+                          bias=False),
                 nn.BatchNorm2d(num_filters[idx], eps=1e-3, momentum=0.01),
                 nn.ReLU()
             ]
             for k in range(layer_nums[idx]):
                 cur_layers.extend([
-                    nn.Conv2d(num_filters[idx], num_filters[idx], kernel_size=3, padding=1, bias=False),
+                    nn.Conv2d(num_filters[idx],
+                              num_filters[idx],
+                              kernel_size=3,
+                              padding=1,
+                              bias=False),
                     nn.BatchNorm2d(num_filters[idx], eps=1e-3, momentum=0.01),
                     nn.ReLU()
                 ])
@@ -47,36 +59,99 @@ class BaseBEVBackbone(nn.Module):
             if len(upsample_strides) > 0:
                 stride = upsample_strides[idx]
                 if stride >= 1:
-                    self.deblocks.append(nn.Sequential(
-                        nn.ConvTranspose2d(
-                            num_filters[idx], num_upsample_filters[idx],
-                            upsample_strides[idx],
-                            stride=upsample_strides[idx], bias=False
-                        ),
-                        nn.BatchNorm2d(num_upsample_filters[idx], eps=1e-3, momentum=0.01),
-                        nn.ReLU()
-                    ))
+                    self.deblocks.append(
+                        nn.Sequential(
+                            nn.ConvTranspose2d(num_filters[idx],
+                                               num_upsample_filters[idx],
+                                               upsample_strides[idx],
+                                               stride=upsample_strides[idx],
+                                               bias=False),
+                            nn.BatchNorm2d(num_upsample_filters[idx],
+                                           eps=1e-3,
+                                           momentum=0.01), nn.ReLU()))
                 else:
                     stride = np.round(1 / stride).astype(np.int)
-                    self.deblocks.append(nn.Sequential(
-                        nn.Conv2d(
-                            num_filters[idx], num_upsample_filters[idx],
-                            stride,
-                            stride=stride, bias=False
-                        ),
-                        nn.BatchNorm2d(num_upsample_filters[idx], eps=1e-3, momentum=0.01),
-                        nn.ReLU()
-                    ))
+                    self.deblocks.append(
+                        nn.Sequential(
+                            nn.Conv2d(num_filters[idx],
+                                      num_upsample_filters[idx],
+                                      stride,
+                                      stride=stride,
+                                      bias=False),
+                            nn.BatchNorm2d(num_upsample_filters[idx],
+                                           eps=1e-3,
+                                           momentum=0.01), nn.ReLU()))
 
         c_in = sum(num_upsample_filters)
         if len(upsample_strides) > num_levels:
-            self.deblocks.append(nn.Sequential(
-                nn.ConvTranspose2d(c_in, c_in, upsample_strides[-1], stride=upsample_strides[-1], bias=False),
-                nn.BatchNorm2d(c_in, eps=1e-3, momentum=0.01),
-                nn.ReLU(),
-            ))
+            self.deblocks.append(
+                nn.Sequential(
+                    nn.ConvTranspose2d(c_in,
+                                       c_in,
+                                       upsample_strides[-1],
+                                       stride=upsample_strides[-1],
+                                       bias=False),
+                    nn.BatchNorm2d(c_in, eps=1e-3, momentum=0.01),
+                    nn.ReLU(),
+                ))
 
         self.num_bev_features = c_in
+        # for domain classifier
+        self.batch_size = -1
+        self.use_domain_cls = self.model_cfg.get('USE_DOMAIN_CLASSIFIER',
+                                                 False)
+        if self.use_domain_cls:
+            self.dc_version = self.model_cfg.get('DC_VERSION', None)
+            self.domain_cls = dc_model_dict[self.dc_version]()
+            self.domain_loss_cfg = self.model_cfg.get('LOSS_CONFIG', None)
+            if self.domain_loss_cfg.LOSS_DC == 'NLL':
+                self.domain_cls_loss = torch.nn.NLLLoss().cuda()
+            elif self.domain_loss_cfg.LOSS_DC == 'BCE':
+                self.domain_cls_loss = F.binary_cross_entropy_with_logits
+            else:
+                raise NotImplementedError('specify implemented loss name')
+
+            self.forward_ret_dict = {}
+
+    def get_loss(self, tb_dict=None):
+        batch_size = self.batch_size
+        tb_dict = {} if tb_dict is None else tb_dict
+        domain_output = self.forward_ret_dict['domain_output']
+        if 'POOL' in self.dc_version:
+            domain_label = torch.zeros(batch_size, dtype=torch.long).cuda()
+            domain_label[batch_size // 2:].fill_(1)
+        elif 'CONV' in self.dc_version:
+            domain_label = torch.FloatTensor(domain_output.shape).cuda()
+            domain_label[:batch_size // 2].fill_(0.)
+            domain_label[batch_size // 2:].fill_(1.)
+
+        dc_loss_weight = self.domain_loss_cfg.LOSS_WEIGHTS.dc_weight
+        domain_cls_loss = self.domain_cls_loss(domain_output, domain_label)
+        domain_cls_loss *= dc_loss_weight
+
+        return domain_cls_loss, tb_dict
+
+    def remove_trg_data(self, data_dict):
+        batch_size = data_dict['batch_size']
+        data_dict['spatial_features'] = data_dict['spatial_features'][:batch_size // 2]
+        data_dict['spatial_features_2d'] = data_dict['spatial_features_2d'][:batch_size // 2]
+        data_dict['batch_size'] = batch_size // 2
+        data_dict['gt_boxes'] = data_dict['gt_boxes'][:batch_size//2]
+        pt_mask = data_dict['points'][:, 0] < batch_size // 2
+        data_dict['points'] = data_dict['points'][pt_mask]
+        vox_mask = data_dict['voxel_coords'][:, 0] < batch_size // 2
+        data_dict['voxel_coords'] = data_dict['voxel_coords'][vox_mask]
+        data_dict['voxels'] = data_dict['voxels'][vox_mask]
+        data_dict['voxel_features'] = data_dict['voxel_features'][vox_mask]
+        multi_scale_3d_features = data_dict['multi_scale_3d_features']
+        for key in multi_scale_3d_features.keys():
+            indices = multi_scale_3d_features[key].indices
+            ms_mask = indices[:, 0] < batch_size // 2
+            multi_scale_3d_features[key].indices = multi_scale_3d_features[
+                key].indices[ms_mask]
+            multi_scale_3d_features[key] = multi_scale_3d_features[
+                key].replace_feature(
+                    multi_scale_3d_features[key].features[ms_mask])
 
     def forward(self, data_dict):
         """
@@ -86,6 +161,7 @@ class BaseBEVBackbone(nn.Module):
         Returns:
         """
 
+        self.batch_size = data_dict['batch_size']
         spatial_features = data_dict['spatial_features']
         ups = []
         ret_dict = {}
@@ -110,4 +186,18 @@ class BaseBEVBackbone(nn.Module):
             x = self.deblocks[-1](x)
 
         data_dict['spatial_features_2d'] = x
+        if self.use_domain_cls:
+            # from DANN
+            iter_meta = data_dict['cur_train_meta']
+            p = float(
+                i + iter_meta['cur_epoch'] * iter_meta['total_it_each_epoch']
+            ) / iter_meta['total_epochs'] / iter_meta['total_it_each_epoch']
+            alpha = 2. / (1. + np.exp(-10 * p)) - 1
+
+            domain_out = self.domain_cls(x, alpha)
+
+            self.forward_ret_dict['domain_output'] = domain_out
+            # remove target data
+            self.remove_trg_data(data_dict)
+
         return data_dict

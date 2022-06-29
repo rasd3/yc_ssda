@@ -248,7 +248,7 @@ class NuScenesDataset(DatasetTemplate):
                 return pred_dict
 
             if self.shift_coor:
-                points[:, :3] -= np.array(self.shift_coor, dtype=np.float32)
+                pred_boxes[:, :3] -= np.array(self.shift_coor, dtype=np.float32)
 
             pred_dict['name'] = np.array(class_names)[pred_labels - 1]
             pred_dict['score'] = pred_scores
