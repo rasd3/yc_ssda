@@ -14,7 +14,7 @@ DATA_CONFIG:
         'test': [nuscenes_infos_10sweeps_val_train_0.50_1.pkl],
     }
     DATA_AUGMENTOR:
-        DISABLE_AUG_LIST: ['gt_sampling']
+        DISABLE_AUG_LIST: ['gt_sampling', 'random_object_scaling']
         AUG_CONFIG_LIST:
             - NAME: gt_sampling
               DB_INFO_PATH:
@@ -269,7 +269,7 @@ MODEL:
 
 
 OPTIMIZATION:
-    BATCH_SIZE_PER_GPU: 2
+    BATCH_SIZE_PER_GPU: 6
     EVAL_BATCH_SIZE_PER_GPU: 8
     NUM_EPOCHS: 20
 
