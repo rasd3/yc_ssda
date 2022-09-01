@@ -5,10 +5,12 @@ from .pointpillar import PointPillar
 from .pv_rcnn import PVRCNN
 from .pv_rcnn_ssl import PVRCNN_SSL
 from .second_net import SECONDNet
+from .second_net_iou import SECONDNetIoU
 
 __all__ = {
     'Detector3DTemplate': Detector3DTemplate,
     'SECONDNet': SECONDNet,
+    'SECONDNetIoU': SECONDNetIoU,
     'PartA2Net': PartA2Net,
     'PVRCNN': PVRCNN,
     'PVRCNN_SSL': PVRCNN_SSL,

@@ -341,7 +341,8 @@ class NuScenesDataset(DatasetTemplate):
             if x in map_name_to_kitti:
                 kitti_class_names.append(map_name_to_kitti[x])
             else:
-                kitti_class_names.append('Person_sitting')
+                pass
+                #  kitti_class_names.append('Person_sitting')
         ap_result_str, ap_dict = kitti_eval.get_official_eval_result(
             gt_annos=eval_gt_annos,
             dt_annos=eval_det_annos,

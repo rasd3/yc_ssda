@@ -14,9 +14,8 @@ DATA_CONFIG:
         'test': [nuscenes_infos_10sweeps_val.pkl],
     }
 
-
 MODEL:
-    NAME: PVRCNN
+    NAME: SECONDNetIoU
 
     VFE:
         NAME: MeanVFE
@@ -115,61 +114,12 @@ MODEL:
                 'code_weights': [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
             }
 
-    PFE:
-        NAME: VoxelSetAbstraction
-        POINT_SOURCE: raw_points
-        NUM_KEYPOINTS: 4096
-        NUM_OUTPUT_FEATURES: 128
-        SAMPLE_METHOD: FPS
-
-        FEATURES_SOURCE: ['bev', 'x_conv1', 'x_conv2', 'x_conv3', 'x_conv4', 'raw_points']
-        # FEATURES_SOURCE: ['bev', 'x_conv3', 'x_conv4', 'raw_points']
-        SA_LAYER:
-            raw_points:
-                MLPS: [[16, 16], [16, 16]]
-                POOL_RADIUS: [0.4, 0.8]
-                NSAMPLE: [16, 16]
-            x_conv1:
-                DOWNSAMPLE_FACTOR: 1
-                MLPS: [[16, 16], [16, 16]]
-                POOL_RADIUS: [0.4, 0.8]
-                NSAMPLE: [16, 16]
-            x_conv2:
-                DOWNSAMPLE_FACTOR: 2
-                MLPS: [[32, 32], [32, 32]]
-                POOL_RADIUS: [0.8, 1.2]
-                NSAMPLE: [16, 32]
-            x_conv3:
-                DOWNSAMPLE_FACTOR: 4
-                MLPS: [[64, 64], [64, 64]]
-                POOL_RADIUS: [1.2, 2.4]
-                NSAMPLE: [16, 32]
-            x_conv4:
-                DOWNSAMPLE_FACTOR: 8
-                MLPS: [[64, 64], [64, 64]]
-                POOL_RADIUS: [2.4, 4.8]
-                NSAMPLE: [16, 32]
-
-    POINT_HEAD:
-        NAME: PointHeadSimple
-        CLS_FC: [256, 256]
-        CLASS_AGNOSTIC: True
-        USE_POINT_FEATURES_BEFORE_FUSION: True
-        TARGET_CONFIG:
-            GT_EXTRA_WIDTH: [0.2, 0.2, 0.2]
-        LOSS_CONFIG:
-            LOSS_REG: smooth-l1
-            LOSS_WEIGHTS: {
-                'point_cls_weight': 1.0,
-            }
-
     ROI_HEAD:
-        NAME: PVRCNNHead
+        NAME: SECONDHead
         CLASS_AGNOSTIC: True
 
         SHARED_FC: [256, 256]
-        CLS_FC: [256, 256]
-        REG_FC: [256, 256]
+        IOU_FC: [256, 256]
         DP_RATIO: 0.3
 
         NMS_CONFIG:
@@ -187,11 +137,9 @@ MODEL:
                 NMS_THRESH: 0.7
 
         ROI_GRID_POOL:
-            GRID_SIZE: 6
-            MLPS: [[64, 64], [64, 64]]
-            POOL_RADIUS: [0.8, 1.6]
-            NSAMPLE: [16, 16]
-            POOL_METHOD: max_pool
+            GRID_SIZE: 7
+            IN_CHANNEL: 512
+            DOWNSAMPLE_RATIO: 8
 
         TARGET_CONFIG:
             BOX_CODER: ResidualCoder
@@ -199,7 +147,7 @@ MODEL:
             FG_RATIO: 0.5
 
             SAMPLE_ROI_BY_EACH_CLASS: True
-            CLS_SCORE_TYPE: roi_iou
+            CLS_SCORE_TYPE: raw_roi_iou
 
             CLS_FG_THRESH: 0.75
             CLS_BG_THRESH: 0.25
@@ -209,13 +157,9 @@ MODEL:
             REG_FG_THRESH: 0.55
 
         LOSS_CONFIG:
-            CLS_LOSS: BinaryCrossEntropy
-            REG_LOSS: smooth-l1
-            CORNER_LOSS_REGULARIZATION: True
+            IOU_LOSS: BinaryCrossEntropy
             LOSS_WEIGHTS: {
-                'rcnn_cls_weight': 1.0,
-                'rcnn_reg_weight': 1.0,
-                'rcnn_corner_weight': 1.0,
+                'rcnn_iou_weight': 1.0,
                 'code_weights': [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
             }
 
@@ -225,20 +169,19 @@ MODEL:
         OUTPUT_RAW_SCORE: False
 
         EVAL_METRIC: nuscenes
-        # EVAL_METRIC: kitti
 
         NMS_CONFIG:
             MULTI_CLASSES_NMS: False
             NMS_TYPE: nms_gpu
-            NMS_THRESH: 0.1
+            NMS_THRESH: 0.01
             NMS_PRE_MAXSIZE: 4096
             NMS_POST_MAXSIZE: 500
 
 
 OPTIMIZATION:
-    BATCH_SIZE_PER_GPU: 2
+    BATCH_SIZE_PER_GPU: 8
     EVAL_BATCH_SIZE_PER_GPU: 8
-    NUM_EPOCHS: 30
+    NUM_EPOCHS: 20
 
     OPTIMIZER: adam_onecycle
     LR: 0.01
