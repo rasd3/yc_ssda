@@ -2,6 +2,7 @@ import torch
 from .detector3d_template import Detector3DTemplate
 from ..model_utils.model_nms_utils import class_agnostic_nms
 from ...ops.roiaware_pool3d import roiaware_pool3d_utils
+from pcdet.utils.simplevis import nuscene_vis
 
 
 class SECONDNetIoU(Detector3DTemplate):
@@ -23,6 +24,21 @@ class SECONDNetIoU(Detector3DTemplate):
             return ret_dict, tb_dict, disp_dict
         else:
             pred_dicts, recall_dicts = self.post_processing(batch_dict)
+            if False:
+                import cv2
+                b_size = batch_dict['gt_boxes'].shape[0]
+                for b in range(b_size):
+                    points = batch_dict['points'][batch_dict['points'][:, 0] ==
+                                                  b][:, 1:4].cpu().numpy()
+                    gt_boxes = batch_dict['gt_boxes'][b].cpu().numpy()
+                    gt_boxes[:, 6] = -gt_boxes[:, 6].copy()
+                    det = nuscene_vis(points, gt_boxes)
+                    cv2.imwrite('test_%02d_gt.png' % b, det)
+                    pred_boxes = pred_dicts[b]['pred_boxes'].cpu().numpy()
+                    pred_boxes[:, 6] = -pred_boxes[:, 6].copy()
+                    det = nuscene_vis(points, pred_boxes)
+                    cv2.imwrite('test_%02d_pred.png' % b, det)
+                breakpoint()
             return pred_dicts, recall_dicts
 
     def get_training_loss(self):

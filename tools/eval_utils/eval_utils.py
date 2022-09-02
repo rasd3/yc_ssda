@@ -1,5 +1,6 @@
 import pickle
 import time
+import os.path as osp
 
 import numpy as np
 import torch
@@ -48,66 +49,69 @@ def eval_one_epoch(cfg, model, dataloader, epoch_id, logger, dist_test=False, sa
         )
     model.eval()
 
-    if cfg.LOCAL_RANK == 0:
-        progress_bar = tqdm.tqdm(total=len(dataloader), leave=True, desc='eval', dynamic_ncols=True)
-    start_time = time.time()
-    for i, batch_dict in enumerate(dataloader):
-        load_data_to_gpu(batch_dict)
-        breakpoint()
-        with torch.no_grad():
-            pred_dicts, ret_dict = model(batch_dict)
-            #  pred_dicts, ret_dict, tb_dict = model(batch_dict)
-        disp_dict = {}
-
-        statistics_info(cfg, ret_dict, metric, disp_dict)
-        annos = dataset.generate_prediction_dicts(
-            batch_dict, pred_dicts, class_names,
-            output_path=final_output_dir if save_to_file else None
-        )
-        det_annos += annos
+    if False: #osp.isfile(result_dir / 'result.pkl'):
+        with open(result_dir / 'result.pkl', 'rb') as f:
+            det_annos = pickle.load(f)
+    else:
         if cfg.LOCAL_RANK == 0:
-            progress_bar.set_postfix(disp_dict)
-            progress_bar.update()
+            progress_bar = tqdm.tqdm(total=len(dataloader), leave=True, desc='eval', dynamic_ncols=True)
+        start_time = time.time()
+        for i, batch_dict in enumerate(dataloader):
+            load_data_to_gpu(batch_dict)
+            with torch.no_grad():
+                pred_dicts, ret_dict = model(batch_dict)
+                #  pred_dicts, ret_dict, tb_dict = model(batch_dict)
+            disp_dict = {}
 
-    if cfg.LOCAL_RANK == 0:
-        progress_bar.close()
+            statistics_info(cfg, ret_dict, metric, disp_dict)
+            annos = dataset.generate_prediction_dicts(
+                batch_dict, pred_dicts, class_names,
+                output_path=final_output_dir if save_to_file else None
+            )
+            det_annos += annos
+            if cfg.LOCAL_RANK == 0:
+                progress_bar.set_postfix(disp_dict)
+                progress_bar.update()
 
-    if dist_test:
-        rank, world_size = common_utils.get_dist_info()
-        det_annos = common_utils.merge_results_dist(det_annos, len(dataset), tmpdir=result_dir / 'tmpdir')
-        metric = common_utils.merge_results_dist([metric], world_size, tmpdir=result_dir / 'tmpdir')
+        if cfg.LOCAL_RANK == 0:
+            progress_bar.close()
 
-    logger.info('*************** Performance of EPOCH %s *****************' % epoch_id)
-    sec_per_example = (time.time() - start_time) / len(dataloader.dataset)
-    logger.info('Generate label finished(sec_per_example: %.4f second).' % sec_per_example)
+        if dist_test:
+            rank, world_size = common_utils.get_dist_info()
+            det_annos = common_utils.merge_results_dist(det_annos, len(dataset), tmpdir=result_dir / 'tmpdir')
+            metric = common_utils.merge_results_dist([metric], world_size, tmpdir=result_dir / 'tmpdir')
 
-    if cfg.LOCAL_RANK != 0:
-        return {}
+        logger.info('*************** Performance of EPOCH %s *****************' % epoch_id)
+        sec_per_example = (time.time() - start_time) / len(dataloader.dataset)
+        logger.info('Generate label finished(sec_per_example: %.4f second).' % sec_per_example)
 
-    ret_dict = {}
-    if dist_test:
-        for key, val in metric[0].items():
-            for k in range(1, world_size):
-                metric[0][key] += metric[k][key]
-        metric = metric[0]
+        if cfg.LOCAL_RANK != 0:
+            return {}
 
-    gt_num_cnt = metric['gt_num']
-    for cur_thresh in cfg.MODEL.POST_PROCESSING.RECALL_THRESH_LIST:
-        cur_roi_recall = metric['recall_roi_%s' % str(cur_thresh)] / max(gt_num_cnt, 1)
-        cur_rcnn_recall = metric['recall_rcnn_%s' % str(cur_thresh)] / max(gt_num_cnt, 1)
-        logger.info('recall_roi_%s: %f' % (cur_thresh, cur_roi_recall))
-        logger.info('recall_rcnn_%s: %f' % (cur_thresh, cur_rcnn_recall))
-        ret_dict['recall/roi_%s' % str(cur_thresh)] = cur_roi_recall
-        ret_dict['recall/rcnn_%s' % str(cur_thresh)] = cur_rcnn_recall
+        ret_dict = {}
+        if dist_test:
+            for key, val in metric[0].items():
+                for k in range(1, world_size):
+                    metric[0][key] += metric[k][key]
+            metric = metric[0]
 
-    total_pred_objects = 0
-    for anno in det_annos:
-        total_pred_objects += anno['name'].__len__()
-    logger.info('Average predicted number of objects(%d samples): %.3f'
-                % (len(det_annos), total_pred_objects / max(1, len(det_annos))))
+        gt_num_cnt = metric['gt_num']
+        for cur_thresh in cfg.MODEL.POST_PROCESSING.RECALL_THRESH_LIST:
+            cur_roi_recall = metric['recall_roi_%s' % str(cur_thresh)] / max(gt_num_cnt, 1)
+            cur_rcnn_recall = metric['recall_rcnn_%s' % str(cur_thresh)] / max(gt_num_cnt, 1)
+            logger.info('recall_roi_%s: %f' % (cur_thresh, cur_roi_recall))
+            logger.info('recall_rcnn_%s: %f' % (cur_thresh, cur_rcnn_recall))
+            ret_dict['recall/roi_%s' % str(cur_thresh)] = cur_roi_recall
+            ret_dict['recall/rcnn_%s' % str(cur_thresh)] = cur_rcnn_recall
 
-    with open(result_dir / 'result.pkl', 'wb') as f:
-        pickle.dump(det_annos, f)
+        total_pred_objects = 0
+        for anno in det_annos:
+            total_pred_objects += anno['name'].__len__()
+        logger.info('Average predicted number of objects(%d samples): %.3f'
+                    % (len(det_annos), total_pred_objects / max(1, len(det_annos))))
+
+        with open(result_dir / 'result.pkl', 'wb') as f:
+            pickle.dump(det_annos, f)
 
     result_str, result_dict = dataset.evaluation(
         det_annos, class_names,

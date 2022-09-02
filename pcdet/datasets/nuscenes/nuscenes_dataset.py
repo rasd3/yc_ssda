@@ -267,12 +267,14 @@ class NuScenesDataset(DatasetTemplate):
         return annos
 
     def kitti_eval(self, eval_det_annos, eval_gt_annos, class_names):
-        from ..kitti.kitti_object_eval_python import eval as kitti_eval
+        from ..kitti.kitti_object_eval_python import eval_omega as kitti_eval
 
         map_name_to_kitti = {
             'car': 'Car',
-            'pedestrian': 'Pedestrian',
             'truck': 'Truck',
+            'bus': 'Bus',
+            'motorcycle': 'Motorcycle',
+            'pedestrian': 'Pedestrian',
         }
 
         def transform_to_kitti_format(annos,
