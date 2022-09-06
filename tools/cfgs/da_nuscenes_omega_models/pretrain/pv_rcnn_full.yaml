@@ -12,7 +12,7 @@ DATA_CONFIG:
 
     MAX_SWEEPS: 10
     INFO_PATH: {
-        'train': [nuscenes_infos_10sweeps_train_015h.pkl],
+        'train': [nuscenes_infos_10sweeps_train.pkl],
         'test': [nuscenes_infos_10sweeps_val.pkl],
     }
 

@@ -59,7 +59,13 @@ def eval_one_epoch(cfg, model, dataloader, epoch_id, logger, dist_test=False, sa
         for i, batch_dict in enumerate(dataloader):
             load_data_to_gpu(batch_dict)
             with torch.no_grad():
-                pred_dicts, ret_dict = model(batch_dict)
+                ret = model(batch_dict)
+                if len(ret) == 2:
+                    pred_dicts, ret_dict = ret
+                elif len(ret) == 3:
+                    pred_dicts, ret_dict, tb_dict = ret
+                else:
+                    raise NotImplementedError
                 #  pred_dicts, ret_dict, tb_dict = model(batch_dict)
             disp_dict = {}
 

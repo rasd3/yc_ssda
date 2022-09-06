@@ -103,7 +103,7 @@ class SingleHead(BaseBEVBackbone):
 
     def forward(self, spatial_features_2d):
         ret_dict = {}
-        spatial_features_2d = super().forward({'spatial_features': spatial_features_2d})['spatial_features_2d']
+        spatial_features_2d = super().forward({'spatial_features': spatial_features_2d, 'batch_size': spatial_features_2d.shape[0]})['spatial_features_2d']
 
         cls_preds = self.conv_cls(spatial_features_2d)
 
