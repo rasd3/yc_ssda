@@ -74,7 +74,6 @@ class RoIHeadTemplate(nn.Module):
                 assert batch_cls_preds.shape.__len__() == 2
                 batch_mask = (batch_dict['batch_index'] == index)
             else:
-                breakpoint()
                 assert batch_dict['batch_cls_preds'].shape.__len__() == 3
                 batch_mask = index
             box_preds = batch_box_preds[batch_mask]
