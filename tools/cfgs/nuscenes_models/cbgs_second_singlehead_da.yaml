@@ -8,6 +8,12 @@ DATA_CONFIG:
         'train': [nuscenes_infos_10sweeps_train_015h.pkl],
         'test': [nuscenes_infos_10sweeps_val.pkl],
     }
+    PRED_VELOCITY: False
+    POINT_FEATURE_ENCODING: {
+        encoding_type: absolute_coordinates_encoding,
+        used_feature_list: ['x', 'y', 'z'],
+        src_feature_list: ['x', 'y', 'z', 'intensity', 'timestamp'],
+    }
 
 MODEL:
     NAME: SECONDNet
@@ -150,7 +156,7 @@ MODEL:
             MATCH_HEIGHT: False
             BOX_CODER: ResidualCoder
             BOX_CODER_CONFIG: {
-                'code_size': 9,
+                'code_size': 7,
                 'encode_angle_by_sincos': True
             }
 
@@ -163,7 +169,7 @@ MODEL:
                 'cls_weight': 1.0,
                 'loc_weight': 0.25,
                 'dir_weight': 0.2,
-                'code_weights': [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.2, 0.2]
+                'code_weights': [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
             }
 
     POST_PROCESSING:
