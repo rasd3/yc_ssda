@@ -6,6 +6,7 @@ from .pv_rcnn import PVRCNN
 from .pv_rcnn_ssl import PVRCNN_SSL
 from .second_net import SECONDNet
 from .second_net_iou import SECONDNetIoU
+from .centerpoint import CenterPoint
 
 __all__ = {
     'Detector3DTemplate': Detector3DTemplate,
@@ -15,7 +16,8 @@ __all__ = {
     'PVRCNN': PVRCNN,
     'PVRCNN_SSL': PVRCNN_SSL,
     'PointPillar': PointPillar,
-    'PointRCNN': PointRCNN
+    'PointRCNN': PointRCNN,
+    'CenterPoint': CenterPoint,
 }
 
 

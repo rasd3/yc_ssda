@@ -5,6 +5,7 @@ DATA_CONFIG:
     _BASE_CONFIG_: cfgs/dataset_configs/nuscenes_dataset.yaml
 
     PRED_VELOCITY: False
+    REPEAT: 1
     INFO_PATH: {
         'train': [nuscenes_infos_10sweeps_train_015h.pkl],
         'test': [nuscenes_infos_10sweeps_val.pkl],
@@ -270,8 +271,8 @@ MODEL:
         SCORE_THRESH: 0.1
         OUTPUT_RAW_SCORE: False
 
-        EVAL_METRIC: nuscenes
-        # EVAL_METRIC: kitti
+        # EVAL_METRIC: nuscenes
+        EVAL_METRIC: kitti
 
         NMS_CONFIG:
             MULTI_CLASSES_NMS: False

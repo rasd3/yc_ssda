@@ -51,12 +51,21 @@ class Detector3DTemplate(nn.Module):
         if self.model_cfg.get('VFE', None) is None:
             return None, model_info_dict
 
-        vfe_module = vfe.__all__[self.model_cfg.VFE.NAME](
-            model_cfg=self.model_cfg.VFE,
-            num_point_features=model_info_dict['num_rawpoint_features'],
-            point_cloud_range=model_info_dict['point_cloud_range'],
-            voxel_size=model_info_dict['voxel_size']
-        )
+        if self.model_cfg.VFE.NAME in ['DynPillarVFE']:
+            vfe_module = vfe.__all__[self.model_cfg.VFE.NAME](
+                model_cfg=self.model_cfg.VFE,
+                num_point_features=model_info_dict['num_rawpoint_features'],
+                point_cloud_range=model_info_dict['point_cloud_range'],
+                voxel_size=model_info_dict['voxel_size'],
+                grid_size=model_info_dict['grid_size'],
+            )
+        else:
+            vfe_module = vfe.__all__[self.model_cfg.VFE.NAME](
+                model_cfg=self.model_cfg.VFE,
+                num_point_features=model_info_dict['num_rawpoint_features'],
+                point_cloud_range=model_info_dict['point_cloud_range'],
+                voxel_size=model_info_dict['voxel_size']
+            )
         model_info_dict['num_point_features'] = vfe_module.get_output_feature_dim()
         model_info_dict['module_list'].append(vfe_module)
         return vfe_module, model_info_dict
@@ -122,15 +131,27 @@ class Detector3DTemplate(nn.Module):
             return None, model_info_dict
         if self.model_cfg.get('PFE', None) is None:
             model_info_dict['num_bev_features'] = model_info_dict['num_backbone2d_features']
-        dense_head_module = dense_heads.__all__[self.model_cfg.DENSE_HEAD.NAME](
-            model_cfg=self.model_cfg.DENSE_HEAD,
-            input_channels=model_info_dict['num_bev_features'],
-            num_class=self.num_class if not self.model_cfg.DENSE_HEAD.CLASS_AGNOSTIC else 1,
-            class_names=self.class_names,
-            grid_size=model_info_dict['grid_size'],
-            point_cloud_range=model_info_dict['point_cloud_range'],
-            predict_boxes_when_training=self.model_cfg.get('ROI_HEAD', False)
-        )
+        if self.model_cfg.DENSE_HEAD.NAME in ['CenterHead']:
+            dense_head_module = dense_heads.__all__[self.model_cfg.DENSE_HEAD.NAME](
+                model_cfg=self.model_cfg.DENSE_HEAD,
+                input_channels=model_info_dict['num_bev_features'],
+                num_class=self.num_class if not self.model_cfg.DENSE_HEAD.CLASS_AGNOSTIC else 1,
+                class_names=self.class_names,
+                grid_size=model_info_dict['grid_size'],
+                point_cloud_range=model_info_dict['point_cloud_range'],
+                predict_boxes_when_training=self.model_cfg.get('ROI_HEAD', False),
+                voxel_size=model_info_dict['voxel_size'],
+            )
+        else:
+            dense_head_module = dense_heads.__all__[self.model_cfg.DENSE_HEAD.NAME](
+                model_cfg=self.model_cfg.DENSE_HEAD,
+                input_channels=model_info_dict['num_bev_features'],
+                num_class=self.num_class if not self.model_cfg.DENSE_HEAD.CLASS_AGNOSTIC else 1,
+                class_names=self.class_names,
+                grid_size=model_info_dict['grid_size'],
+                point_cloud_range=model_info_dict['point_cloud_range'],
+                predict_boxes_when_training=self.model_cfg.get('ROI_HEAD', False)
+            )
         model_info_dict['module_list'].append(dense_head_module)
         return dense_head_module, model_info_dict
 
