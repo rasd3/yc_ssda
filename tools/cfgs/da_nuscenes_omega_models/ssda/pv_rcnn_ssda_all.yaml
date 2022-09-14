@@ -1,8 +1,8 @@
-CLASS_NAMES: ['car','truck', 'construction_vehicle', 'bus', 'trailer',
-              'barrier', 'motorcycle', 'bicycle', 'pedestrian', 'traffic_cone']
+CLASS_NAMES: ['car', 'truck', 'bus', 'motorcycle', 'pedestrian']
 
 DATA_CONFIG:
     _BASE_CONFIG_: cfgs/dataset_configs/da_nuscenes_omega_ssda.yaml
+    CLASS_NAMES: ['car', 'truck', 'bus', 'motorcycle', 'pedestrian']
 
 
 MODEL:

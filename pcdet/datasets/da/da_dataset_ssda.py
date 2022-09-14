@@ -61,10 +61,10 @@ class DADatasetSSDA(torch_data.Dataset):
         if self.training:
             data_dict['points_ema'] = data_dict['points'].copy()
             data_dict['gt_boxes_ema'] = data_dict['gt_boxes'].copy()
-            data_dict['voxels_ema'] = data_dict['voxels'].clone()
-            data_dict['voxel_coords_ema'] = data_dict['voxel_coords'].clone()
+            data_dict['voxels_ema'] = data_dict['voxels'].copy()
+            data_dict['voxel_coords_ema'] = data_dict['voxel_coords'].copy()
             data_dict['voxel_num_points_ema'] = data_dict[
-                'voxel_num_points'].clone()
+                'voxel_num_points'].copy()
         return data_dict
 
     def __getitem__(self, index):
