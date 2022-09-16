@@ -10,7 +10,6 @@ SRC_DATASET:
     REPEAT: 1
     CLASS_NAMES: ['car','truck', 'construction_vehicle', 'bus', 'trailer',
                   'barrier', 'motorcycle', 'bicycle', 'pedestrian', 'traffic_cone']
-    SHIFT_COOR: [0.0, 0.0, 1.8]
     MAX_SWEEPS: 10
     PRED_VELOCITY: False
     BALANCED_RESAMPLING: False
@@ -26,6 +25,7 @@ TRG_DATASET:
     REPEAT: 1
     CLASS_NAMES: ['car','truck', 'construction_vehicle', 'bus', 'trailer',
                   'barrier', 'motorcycle', 'bicycle', 'pedestrian', 'traffic_cone']
+    SHIFT_COOR: [0.0, 0.0, -1.8]
     DATA_PATH: '../data/omega'
     VERSION: 'v0.5-omega-trainval'
     MAX_SWEEPS: 1

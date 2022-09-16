@@ -10,7 +10,7 @@ DATA_CONFIG:
     REPEAT: 1
     MAX_SWEEPS: 1
     PRED_VELOCITY: False
-    BALANCED_RESAMPLING: False
+    BALANCED_RESAMPLING: True
     INFO_PATH: {
         'train': [omega_infos_1sweeps_train_train_0.20_1.pkl],
         'test': [omega_infos_1sweeps_val_train_0.20_1.pkl],
