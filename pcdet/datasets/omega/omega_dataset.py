@@ -6,6 +6,7 @@ import os
 import pickle
 import torch
 import tqdm
+from pathlib import Path
 from nuscenes import NuScenes
 from nuscenes.eval.common.data_classes import EvalBoxes
 from nuscenes.eval.common.loaders import filter_eval_boxes, load_prediction
@@ -352,7 +353,7 @@ def category_to_detection_name_omega(category_name: str) -> Optional[str]:
 
 class OmegaDataset(NuScenesDataset):
     def include_nuscenes_data(self, mode):
-        self.logger.info('Loading NuScenes dataset')
+        self.logger.info('Loading Omega dataset')
         nuscenes_infos = []
 
         for info_path in self.dataset_cfg.INFO_PATH[mode]:
@@ -364,11 +365,11 @@ class OmegaDataset(NuScenesDataset):
                 nuscenes_infos.extend(infos)
 
         self.infos.extend(nuscenes_infos)
-        self.logger.info('Total samples for NuScenes dataset: %d' %
+        self.logger.info('Total samples for Omega dataset: %d' %
                          (len(nuscenes_infos)))
 
     def kitti_eval(self, eval_det_annos, eval_gt_annos, class_names):
-        from ..kitti.kitti_object_eval_python import eval as kitti_eval
+        from ..kitti.kitti_object_eval_python import eval_omega as kitti_eval
 
         map_name_to_kitti = {
             'car': 'Car',
@@ -444,7 +445,8 @@ class OmegaDataset(NuScenesDataset):
             if x in map_name_to_kitti:
                 kitti_class_names.append(map_name_to_kitti[x])
             else:
-                kitti_class_names.append('Person_sitting')
+                pass
+                #  kitti_class_names.append('Person_sitting')
         ap_result_str, ap_dict = kitti_eval.get_official_eval_result(
             gt_annos=eval_gt_annos,
             dt_annos=eval_det_annos,
@@ -496,7 +498,7 @@ class OmegaDataset(NuScenesDataset):
             eval_version = 'cvpr_2019'
             eval_config = config_factory(eval_version)
 
-        nusc_eval = NuScenesEval(
+        nusc_eval = NuScenesOmegaEval(
             nusc,
             config=eval_config,
             result_path=res_path,

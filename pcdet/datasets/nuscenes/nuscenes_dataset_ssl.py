@@ -169,9 +169,6 @@ class NuScenesDatasetSSL(DatasetTemplate):
         if self.shift_coor:
             points[:, :3] += np.array(self.shift_coor, dtype=np.float32)
 
-        if self.dataset_cfg.get('SHIFT_COOR', None):
-            points[:, 0:3] += np.array(self.dataset_cfg.SHIFT_COOR,
-                                       dtype=np.float32)
 
         input_dict = {
             'points': points,
@@ -197,8 +194,6 @@ class NuScenesDatasetSSL(DatasetTemplate):
                 info['gt_boxes'] if mask is None else info['gt_boxes'][mask]
             })
 
-            if self.dataset_cfg.get('SHIFT_COOR', None):
-                input_dict['gt_boxes'][:, 0:3] += self.dataset_cfg.SHIFT_COOR
 
         if self.dataset_cfg.get('FOV_POINTS_ONLY', None):
             input_dict['points'] = self.extract_fov_data(
@@ -430,8 +425,8 @@ class NuScenesDatasetSSL(DatasetTemplate):
 
         return data_dict
 
-    @staticmethod
-    def generate_prediction_dicts(batch_dict,
+    def generate_prediction_dicts(self,
+                                  batch_dict,
                                   pred_dicts,
                                   class_names,
                                   output_path=None):
@@ -465,8 +460,8 @@ class NuScenesDatasetSSL(DatasetTemplate):
             if pred_scores.shape[0] == 0:
                 return pred_dict
 
-            if self.dataset_cfg.get('SHIFT_COOR', None):
-                pred_boxes[:, 0:3] -= self.dataset_cfg.SHIFT_COOR
+            if self.shift_coor:
+                pred_boxes[:, 0:3] -= self.shift_coor
 
             pred_dict['name'] = np.array(class_names)[pred_labels - 1]
             pred_dict['score'] = pred_scores

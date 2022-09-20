@@ -557,7 +557,7 @@ def fill_trainval_part_infos(data_path,
 
             gt_boxes = np.concatenate([locs, dims, rots, velocity[:, :2]], axis=1)
             # rot 90
-            gt_boxes = gt_boxes[:, [1, 0, 2, 4, 3, 5, 6]]
+            gt_boxes = gt_boxes[:, [1, 0, 2, 4, 3, 5, 6, 7, 8]]
             gt_boxes[:, 6] = -gt_boxes[:, 6] - np.pi / 2
 
             assert len(annotations) == len(gt_boxes) == len(velocity)
@@ -720,7 +720,7 @@ def fill_trainval_infos(data_path,
 
             gt_boxes = np.concatenate([locs, dims, rots, velocity[:, :2]], axis=1)
             # rot 90
-            gt_boxes = gt_boxes[:, [1, 0, 2, 4, 3, 5, 6]]
+            gt_boxes = gt_boxes[:, [1, 0, 2, 4, 3, 5, 6, 7, 8]]
             gt_boxes[:, 6] = -gt_boxes[:, 6] - np.pi / 2
 
             assert len(annotations) == len(gt_boxes) == len(velocity)

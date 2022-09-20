@@ -71,8 +71,19 @@ class NuScenesDataset(DatasetTemplate):
 
         sampled_infos = []
 
-        frac = 1.0 / len(self.class_names)
-        ratios = [frac / v for v in cls_dist.values()]
+        #  frac = 1.0 / len(self.class_names)
+        #  ratios = [frac / v for v in cls_dist.values()]
+        ratios = []
+        cls_cnt = len(self.class_names)
+        for v in cls_dist.values():
+            if v == 0.:
+                cls_cnt -= 1
+        frac = 1.0 / cls_cnt
+        for v in cls_dist.values():
+            if v == 0.:
+                ratios.append(0.)
+            else:
+                ratios.append(frac / v)
 
         for cur_cls_infos, ratio in zip(list(cls_infos.values()), ratios):
             sampled_infos += np.random.choice(cur_cls_infos,

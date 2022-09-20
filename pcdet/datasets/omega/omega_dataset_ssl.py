@@ -70,8 +70,6 @@ class OmegaDatasetSSL(NuScenesDatasetSSL):
                 'gt_names': info['gt_names'] if mask is None else info['gt_names'][mask],
                 'gt_boxes': info['gt_boxes'] if mask is None else info['gt_boxes'][mask]
             })
-            if self.dataset_cfg.get('SHIFT_COOR', None):
-                input_dict['gt_boxes'][:, 0:3] += self.dataset_cfg.SHIFT_COOR
 
         if self.dataset_cfg.get('FOV_POINTS_ONLY', None):
             input_dict['points'] = self.extract_fov_data(
@@ -272,8 +270,7 @@ class OmegaDatasetSSL(NuScenesDatasetSSL):
 
         return data_dict
 
-    @staticmethod
-    def generate_prediction_dicts(batch_dict, pred_dicts, class_names, output_path=None):
+    def generate_prediction_dicts(self, batch_dict, pred_dicts, class_names, output_path=None):
         """
         Args:
             batch_dict:
@@ -300,8 +297,8 @@ class OmegaDatasetSSL(NuScenesDatasetSSL):
             pred_dict = get_template_prediction(pred_scores.shape[0])
             if pred_scores.shape[0] == 0:
                 return pred_dict
-            if self.dataset_cfg.get('SHIFT_COOR', None):
-                pred_boxes[:, 0:3] -= self.dataset_cfg.SHIFT_COOR
+            if self.shift_coor:
+                pred_boxes[:, 0:3] -= self.shift_coor
 
             pred_dict['name'] = np.array(class_names)[pred_labels - 1]
             pred_dict['score'] = pred_scores
@@ -320,7 +317,7 @@ class OmegaDatasetSSL(NuScenesDatasetSSL):
         return annos
 
     def kitti_eval(self, eval_det_annos, eval_gt_annos, class_names):
-        from ..kitti.kitti_object_eval_python import eval as kitti_eval
+        from ..kitti.kitti_object_eval_python import eval_omega as kitti_eval
 
         map_name_to_kitti = {
             'car': 'Car',
@@ -386,7 +383,8 @@ class OmegaDatasetSSL(NuScenesDatasetSSL):
             if x in map_name_to_kitti:
                 kitti_class_names.append(map_name_to_kitti[x])
             else:
-                kitti_class_names.append('Person_sitting')
+                pass
+                #  kitti_class_names.append('Person_sitting')
         ap_result_str, ap_dict = kitti_eval.get_official_eval_result(
             gt_annos=eval_gt_annos, dt_annos=eval_det_annos, current_classes=kitti_class_names
         )

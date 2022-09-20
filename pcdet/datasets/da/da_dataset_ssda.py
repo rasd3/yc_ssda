@@ -124,7 +124,7 @@ class DADatasetSSDA(torch_data.Dataset):
                         (batch_size, max_gt, val[0].shape[-1]),
                         dtype=np.float32)
                     for k in range(batch_size):
-                        batch_gt_boxes3d[k, :val[k].__len__(), :] = val[k]
+                        batch_gt_boxes3d[k, :val[k].__len__(), :] = val[k][:, :8]
                     ret[key] = batch_gt_boxes3d
                 else:
                     ret[key] = np.stack(val, axis=0)
@@ -135,8 +135,8 @@ class DADatasetSSDA(torch_data.Dataset):
         ret['batch_size'] = batch_size
         return ret
 
-    @staticmethod
-    def generate_prediction_dicts(batch_dict,
+    def generate_prediction_dicts(self,
+                                  batch_dict,
                                   pred_dicts,
                                   class_names,
                                   output_path=None):
@@ -162,13 +162,16 @@ class DADatasetSSDA(torch_data.Dataset):
             }
             return ret_dict
 
-        def generate_single_sample_dict(box_dict):
+        def generate_single_sample_dict(box_dict, shift_coor=None):
             pred_scores = box_dict['pred_scores'].cpu().numpy()
             pred_boxes = box_dict['pred_boxes'].cpu().numpy()
             pred_labels = box_dict['pred_labels'].cpu().numpy()
             pred_dict = get_template_prediction(pred_scores.shape[0])
             if pred_scores.shape[0] == 0:
                 return pred_dict
+
+            if shift_coor:
+                pred_boxes[:, 0:3] -= shift_coor
 
             pred_dict['name'] = np.array(class_names)[pred_labels - 1]
             pred_dict['score'] = pred_scores
@@ -179,7 +182,7 @@ class DADatasetSSDA(torch_data.Dataset):
 
         annos = []
         for index, box_dict in enumerate(pred_dicts):
-            single_pred_dict = generate_single_sample_dict(box_dict)
+            single_pred_dict = generate_single_sample_dict(box_dict, self.trg_dataset.shift_coor)
             single_pred_dict['frame_id'] = batch_dict['frame_id'][index]
             single_pred_dict['metadata'] = batch_dict['metadata'][index]
             annos.append(single_pred_dict)

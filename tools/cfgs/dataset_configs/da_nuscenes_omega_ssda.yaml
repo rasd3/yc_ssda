@@ -1,4 +1,5 @@
 DATASET: 'DADatasetSSDA'
+REPEAT: 1
 
 DATA_SPLIT: {
     'train': train,
@@ -22,7 +23,7 @@ SRC_DATASET:
 
 TRG_DATASET:
     _BASE_CONFIG_: cfgs/dataset_configs/omega_dataset_ssl.yaml
-    REPEAT: 1
+    REPEAT: 5
     CLASS_NAMES: ['car','truck', 'construction_vehicle', 'bus', 'trailer',
                   'barrier', 'motorcycle', 'bicycle', 'pedestrian', 'traffic_cone']
     SHIFT_COOR: [0.0, 0.0, -1.8]
@@ -32,6 +33,6 @@ TRG_DATASET:
     PRED_VELOCITY: False
     BALANCED_RESAMPLING: False
     INFO_PATH: {
-        'train': [omega_infos_1sweeps_train_train_0.20_1.pkl, omega_infos_1sweeps_unlabeled_train_0.20_1.pkl],
-        'test': [omega_infos_1sweeps_val_train_0.20_1.pkl],
+        'train': [omega_infos_1sweeps_train_train_0.10_2.pkl, omega_infos_1sweeps_unlabeled_train_0.10_2.pkl],
+        'test': [omega_infos_1sweeps_val_train_0.10_2.pkl],
     }
