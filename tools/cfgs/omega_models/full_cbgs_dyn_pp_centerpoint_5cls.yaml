@@ -1,5 +1,5 @@
-CLASS_NAMES: ['car','truck', 'construction_vehicle', 'bus', 'trailer',
-              'barrier', 'motorcycle', 'bicycle', 'pedestrian', 'traffic_cone']
+CLASS_NAMES: ['car', 'truck', 'bus', 
+              'motorcycle', 'pedestrian']
 
 DATA_CONFIG:
     _BASE_CONFIG_: cfgs/dataset_configs/omega_dataset.yaml
@@ -12,8 +12,8 @@ DATA_CONFIG:
     PRED_VELOCITY: False
     BALANCED_RESAMPLING: True
     INFO_PATH: {
-        'train': [omega_infos_1sweeps_train_train_0.10_2.pkl],
-        'test': [omega_infos_1sweeps_val_train_0.10_2.pkl],
+        'train': [omega_infos_1sweeps_train.pkl],
+        'test': [omega_infos_1sweeps_val.pkl],
     }
     DATA_PROCESSOR:
         - NAME: mask_points_and_boxes_outside_range
@@ -61,11 +61,10 @@ MODEL:
 
         CLASS_NAMES_EACH_HEAD: [
             ['car'], 
-            ['truck', 'construction_vehicle'],
-            ['bus', 'trailer'],
-            ['barrier'],
-            ['motorcycle', 'bicycle'],
-            ['pedestrian', 'traffic_cone'],
+            ['truck'],
+            ['bus'],
+            ['motorcycle'],
+            ['pedestrian'],
         ]
 
         SHARED_CONV_CHANNEL: 64

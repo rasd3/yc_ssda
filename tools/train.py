@@ -44,7 +44,7 @@ def parse_config():
     parser.add_argument('--start_epoch', type=int, default=0, help='')
     parser.add_argument('--save_to_file', action='store_true', default=False, help='')
     parser.add_argument('--split', type=str, default='train')
-    parser.add_argument('--repeat', type=int, default=1)
+    parser.add_argument('--repeat', type=int, default=None)
     parser.add_argument('--thresh', type=str, default=None)
     parser.add_argument('--sem_thresh', type=str, default=None)
     # parser.add_argument('--score_thresh', type=float, default=0.0)
@@ -69,7 +69,8 @@ def parse_config():
     cfg.DATA_CONFIG.DATA_SPLIT['train'] = args.split
     #  assert cfg.DATA_CONFIG.DATA_AUGMENTOR.AUG_CONFIG_LIST[0].NAME == 'gt_sampling'  # hardcode
     #  cfg.DATA_CONFIG.DATA_AUGMENTOR.AUG_CONFIG_LIST[0].DB_INFO_PATH = [args.dbinfos]
-    cfg.DATA_CONFIG.REPEAT = args.repeat
+    if args.repeat is not None:
+        cfg.DATA_CONFIG.REPEAT = args.repeat
 
     if args.thresh is not None:
         cfg.MODEL.THRESH = [float(x) for x in args.thresh.split(',')]
