@@ -103,6 +103,17 @@ class DataAugmentor(object):
         data_dict['scale'] = noise_scale
         return data_dict
 
+    def normalize_object_size(self, data_dict=None, config=None):
+        if data_dict is None:
+            return partial(self.normalize_object_size, config=config)
+        points, gt_boxes = augmentor_utils.normalize_object_size(
+            data_dict['gt_boxes'], data_dict['points'], data_dict['gt_boxes_mask'], config['SIZE_RES'], 
+            data_dict['gt_names'], self.class_names
+        )
+        data_dict['gt_boxes'] = gt_boxes
+        data_dict['points'] = points
+        return data_dict
+
     def forward(self, data_dict, no_db_sample=False):
         """
         Args:

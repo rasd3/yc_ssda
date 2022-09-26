@@ -13,6 +13,7 @@ from tensorboardX import SummaryWriter
 from pcdet.config import cfg, cfg_from_list, cfg_from_yaml_file, log_config_to_file
 from pcdet.datasets import build_dataloader
 from pcdet.models import build_network, model_fn_decorator
+from pcdet.models.model_utils.dsnorm import DSNorm
 from pcdet.utils import common_utils
 from train_utils.optimization import build_optimizer, build_scheduler
 from train_utils.train_utils import train_model
@@ -156,6 +157,8 @@ def main():
     model = build_network(model_cfg=cfg.MODEL, num_class=len(cfg.CLASS_NAMES), dataset=train_set)
     if args.sync_bn:
         model = torch.nn.SyncBatchNorm.convert_sync_batchnorm(model)
+    elif cfg.OPTIMIZATION.get('DSNORM', False):
+        model = DSNorm.convert_dsnorm(model)
     model.cuda()
 
     optimizer = build_optimizer(model, cfg.OPTIMIZATION)

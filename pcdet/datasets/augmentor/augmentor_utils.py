@@ -146,8 +146,7 @@ def scale_pre_object(gt_boxes, points, gt_boxes_mask, scale_perturb, num_try=50)
         # if enlarge boxes, remove bg points
         if scale_noises[k][try_idx] > 1:
             points_dst_mask = roiaware_pool3d_utils.points_in_boxes_cpu(points[:, 0:3],
-                                                                        np.expand_dims(gt_boxes[k],
-                                                                                       axis=0)).squeeze(0)
+                    np.expand_dims(gt_boxes[k][:7], axis=0)).squeeze(0)
 
             keep_mask = ~np.logical_xor(point_masks, points_dst_mask)
             points = points[keep_mask]
@@ -222,3 +221,50 @@ def global_scaling_bbox(gt_boxes, scales):
     for i in range(len(scales)):
         gt_boxes[i, :, :6] *= scales[i]
     return gt_boxes
+
+def normalize_object_size(boxes, points, boxes_mask, size_reses, gt_names, class_names):
+    """
+    :param boxes: (N, 7) under unified boxes
+    :param points: (N, 3 + C)
+    :param boxes_mask
+    :param size_res: (3) [l, w, h]
+    :return:
+    """
+    points = copy.deepcopy(points)
+    boxes = copy.deepcopy(boxes)
+    for k in range(boxes.shape[0]):
+        # skip boxes that not need to normalize
+        if boxes_mask[k] == 0:
+            continue
+        cls_idx = class_names.index(gt_names[k])
+        size_res = size_reses[cls_idx]
+        masks = roiaware_pool3d_utils.points_in_boxes_cpu(points[:, 0:3], boxes[k:k+1][:, :7]).squeeze(0)
+        obj_points = points[masks > 0]
+        obj_center, lwh, ry = boxes[k, 0:3], boxes[k, 3:6], boxes[k, 6]
+        obj_points[:, 0:3] -= obj_center
+        obj_points = common_utils.rotate_points_along_z(np.expand_dims(obj_points, axis=0), -ry).squeeze(0)
+        new_lwh = lwh + np.array(size_res)
+        # skip boxes that shift to have negative
+        if (new_lwh < 0).any():
+            boxes_mask[k] = False
+            continue
+        scale_lwh = new_lwh / lwh
+
+        obj_points[:, 0:3] = obj_points[:, 0:3] * scale_lwh
+        obj_points = common_utils.rotate_points_along_z(np.expand_dims(obj_points, axis=0), ry).squeeze(0)
+        # calculate new object center to avoid object float over the road
+        obj_center[2] += size_res[2] / 2
+
+        obj_points[:, 0:3] += obj_center
+        points[masks > 0] = obj_points
+        boxes[k, 3:6] = new_lwh
+
+        # if enlarge boxes, remove bg points
+        if (np.array(size_res) > 0).any():
+            points_dst_mask = roiaware_pool3d_utils.points_in_boxes_cpu(points[:, 0:3],
+                    np.expand_dims(boxes[k][:7], axis=0)).squeeze(0)
+
+            keep_mask = ~np.logical_xor(masks, points_dst_mask)
+            points = points[keep_mask]
+
+    return points, boxes

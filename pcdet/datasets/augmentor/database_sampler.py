@@ -21,7 +21,10 @@ class DataBaseSampler(object):
             try:
                 with open(str(db_info_path), 'rb') as f:
                     infos = pickle.load(f)
-                    [self.db_infos[cur_class].extend(infos[cur_class]) for cur_class in class_names]
+                    #  [self.db_infos[cur_class].extend(infos[cur_class]) for cur_class in class_names]
+                    for cur_class in class_names:
+                        if cur_class in infos:
+                            self.db_infos[cur_class].extend(infos[cur_class])
             except FileNotFoundError:
                 print(f"{str(db_info_path)} not found.")
                 return
@@ -193,6 +196,9 @@ class DataBaseSampler(object):
                 valid_sampled_dict = [sampled_dict[x] for x in valid_mask]
                 valid_sampled_boxes = sampled_boxes[valid_mask]
 
+                if existed_boxes.shape[1] == 9 and valid_sampled_boxes.shape[1] == 7:
+                    dummy = np.zeros((valid_sampled_boxes.shape[0], 2))
+                    valid_sampled_boxes = np.hstack((valid_sampled_boxes, dummy))
                 existed_boxes = np.concatenate((existed_boxes, valid_sampled_boxes), axis=0)
                 total_valid_sampled_dict.extend(valid_sampled_dict)
 

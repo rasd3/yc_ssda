@@ -18,6 +18,18 @@ class ReverseLayerF(Function):
         output = grad_output.neg() * ctx.alpha
         return output, None
 
+class GradReverse(torch.autograd.Function):
+    @staticmethod
+    def forward(ctx, x):
+        return x.view_as(x)
+
+    @staticmethod
+    def backward(ctx, grad_output):
+        return grad_output.neg()
+
+def grad_reverse(x):
+    return GradReverse.apply(x)
+
 
 class pool_1(nn.Module):
     ''' Follow DANN github
@@ -60,6 +72,7 @@ class conv_1(nn.Module):
         self.layers = layers
 
     def forward(self, feat, alpha=None):
+        feat = grad_reverse(feat)
         feat = self.layers(feat)
         return feat
 

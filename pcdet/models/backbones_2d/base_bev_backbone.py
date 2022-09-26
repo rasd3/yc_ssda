@@ -129,6 +129,7 @@ class BaseBEVBackbone(nn.Module):
         domain_cls_loss = self.domain_cls_loss(domain_output, domain_label)
         domain_cls_loss *= dc_loss_weight
 
+        tb_dict['domain_cls_loss'] = domain_cls_loss.item()
         return domain_cls_loss, tb_dict
 
     def remove_trg_data(self, data_dict):
@@ -149,9 +150,10 @@ class BaseBEVBackbone(nn.Module):
             ms_mask = indices[:, 0] < batch_size // 2
             multi_scale_3d_features[key].indices = multi_scale_3d_features[
                 key].indices[ms_mask]
-            multi_scale_3d_features[key] = multi_scale_3d_features[
-                key].replace_feature(
-                    multi_scale_3d_features[key].features[ms_mask])
+            multi_scale_3d_features[key].features = multi_scale_3d_features[key].features[ms_mask]
+            #  multi_scale_3d_features[key] = multi_scale_3d_features[
+                #  key].replace_feature(
+                    #  multi_scale_3d_features[key].features[ms_mask])
 
     def forward(self, data_dict):
         """
@@ -186,7 +188,7 @@ class BaseBEVBackbone(nn.Module):
             x = self.deblocks[-1](x)
 
         data_dict['spatial_features_2d'] = x
-        if self.use_domain_cls:
+        if self.use_domain_cls and 'cur_train_meta' in data_dict:
             # from DANN
             iter_meta = data_dict['cur_train_meta']
             p = float(

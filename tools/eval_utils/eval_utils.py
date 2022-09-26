@@ -7,6 +7,7 @@ import torch
 import tqdm
 
 from pcdet.models import load_data_to_gpu
+from pcdet.models.model_utils.dsnorm import set_ds_target
 from pcdet.utils import common_utils
 
 
@@ -48,6 +49,9 @@ def eval_one_epoch(cfg, model, dataloader, epoch_id, logger, dist_test=False, sa
                 broadcast_buffers=False
         )
     model.eval()
+
+    if cfg.OPTIMIZATION.get('DSNORM', None):
+        model.apply(set_ds_target)
 
     if False: #osp.isfile(result_dir / 'result.pkl'):
         with open(result_dir / 'result.pkl', 'rb') as f:
