@@ -100,6 +100,8 @@ class OmegaDatasetSSL(NuScenesDatasetSSL):
             index_unlabeled = np.random.choice(len(self.unlabeled_infos), 1)[0]
             info_unlabeled = copy.deepcopy(self.unlabeled_infos[index_unlabeled])
             unlabeled_points = self.get_lidar_with_sweeps(info_unlabeled, max_sweeps=self.dataset_cfg.MAX_SWEEPS)
+            if self.shift_coor:
+                unlabeled_points[:, :3] += np.array(self.shift_coor, dtype=np.float32)
             unlabeled_input_dict = {
                 'points': unlabeled_points,
                 'frame_id': Path(info_unlabeled['lidar_path']).stem,
