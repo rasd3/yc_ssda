@@ -3,11 +3,13 @@ from .pointrcnn_head import PointRCNNHead
 from .pvrcnn_head import PVRCNNHead
 from .roi_head_template import RoIHeadTemplate
 from .second_head import SECONDHead
+from .center_roi_head import CenterRoIHead
 
 __all__ = {
     'RoIHeadTemplate': RoIHeadTemplate,
     'PartA2FCHead': PartA2FCHead,
     'PVRCNNHead': PVRCNNHead,
     'PointRCNNHead': PointRCNNHead,
-    'SECONDHead': SECONDHead
+    'SECONDHead': SECONDHead,
+    'CenterRoIHead': CenterRoIHead
 }

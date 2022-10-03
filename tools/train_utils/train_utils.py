@@ -73,6 +73,71 @@ def train_one_epoch(model, optimizer, train_loader, model_func, lr_scheduler, ac
         pbar.close()
     return accumulated_iter
 
+def train_one_epoch_dsn(model, optimizer, train_loader, model_func, lr_scheduler, accumulated_iter, 
+                        optim_cfg, rank, tbar, total_it_each_epoch, dataloader_iter, tb_log=None, 
+                        leave_pbar=False, cur_epoch=0, total_epochs=0):
+    if total_it_each_epoch == len(train_loader):
+        dataloader_iter = iter(train_loader)
+
+    if rank == 0:
+        pbar = tqdm.tqdm(total=total_it_each_epoch, leave=leave_pbar, desc='train', dynamic_ncols=True)
+
+    cur_train_dict = {
+        'cur_epoch': cur_epoch,
+        'total_epochs': total_epochs,
+        'total_it_each_epoch': total_it_each_epoch,
+    }
+
+    breakpoint()
+    for cur_it in range(total_it_each_epoch):
+        try:
+            batch = next(dataloader_iter)
+        except StopIteration:
+            dataloader_iter = iter(train_loader)
+            batch = next(dataloader_iter)
+            print('new iters')
+
+        lr_scheduler.step(accumulated_iter)
+
+        try:
+            cur_lr = float(optimizer.lr)
+        except:
+            cur_lr = optimizer.param_groups[0]['lr']
+
+        if tb_log is not None:
+            tb_log.add_scalar('meta_data/learning_rate', cur_lr, accumulated_iter)
+
+        model.train()
+        optimizer.zero_grad()
+
+        cur_train_dict['cur_it'] = cur_it
+        batch['cur_train_meta'] = cur_train_dict
+
+        loss, tb_dict, disp_dict = model_func(model, batch)
+
+        loss.backward()
+        clip_grad_norm_(model.parameters(), optim_cfg.GRAD_NORM_CLIP)
+        optikizer.step()
+
+        accumulated_iter += 1
+        disp_dict.update({'loss': loss.item(), 'lr': cur_lr})
+
+        # log to console and tensorboard
+        if rank == 0:
+            pbar.update()
+            pbar.set_postfix(dict(total_it=accumulated_iter))
+            tbar.set_postfix(disp_dict)
+            tbar.refresh()
+
+            if tb_log is not None:
+                tb_log.add_scalar('train/loss', loss, accumulated_iter)
+                tb_log.add_scalar('meta_data/learning_rate', cur_lr, accumulated_iter)
+                for key, val in tb_dict.items():
+                    # print(key, val)
+                    tb_log.add_scalar('train/' + key, val, accumulated_iter)
+    if rank == 0:
+        pbar.close()
+    return accumulated_iter
 
 def train_model(model, optimizer, train_loader, model_func, lr_scheduler, optim_cfg,
                 start_epoch, total_epochs, start_iter, rank, tb_log, ckpt_save_dir, train_sampler=None,
@@ -96,7 +161,11 @@ def train_model(model, optimizer, train_loader, model_func, lr_scheduler, optim_
                 cur_scheduler = lr_warmup_scheduler
             else:
                 cur_scheduler = lr_scheduler
-            accumulated_iter = train_one_epoch(
+            if optim_cfg.get('DSNORM', False):
+                train_epoch_func = train_one_epoch_dsn
+            else:
+                train_epoch_func = train_one_epoch
+            accumulated_iter = train_epoch_func(
                 model, optimizer, train_loader, model_func,
                 lr_scheduler=cur_scheduler,
                 accumulated_iter=accumulated_iter, optim_cfg=optim_cfg,

@@ -12,5 +12,6 @@ venv/
 work_dirs/
 output/
 demo/
+model_zoo/
 gt_database*
 data/

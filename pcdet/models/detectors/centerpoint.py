@@ -7,6 +7,7 @@ class CenterPoint(Detector3DTemplate):
         self.module_list = self.build_networks()
 
     def forward(self, batch_dict):
+        batch_dict['dataset_cfg'] = self.dataset.dataset_cfg
         for cur_module in self.module_list:
             batch_dict = cur_module(batch_dict)
 
@@ -29,8 +30,11 @@ class CenterPoint(Detector3DTemplate):
             'loss_rpn': loss_rpn.item(),
             **tb_dict
         }
-
         loss = loss_rpn
+        if self.model_cfg.get('ROI_HEAD') is not None:
+            loss_rcnn, tb_dict = self.roi_head.get_loss(tb_dict)
+            loss = loss + loss_rcnn
+
         return loss, tb_dict, disp_dict
 
     def post_processing(self, batch_dict):
