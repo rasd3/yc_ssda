@@ -113,6 +113,8 @@ class OmegaDatasetSSL(NuScenesDatasetSSL):
                 else:
                     mask = None
 
+                if self.shift_coor:
+                    info_unlabeled['gt_boxes'][:, :3] += self.shift_coor
                 unlabeled_input_dict.update({
                     'gt_names': info_unlabeled['gt_names'] if mask is None else info_unlabeled['gt_names'][mask],
                     'gt_boxes': info_unlabeled['gt_boxes'] if mask is None else info_unlabeled['gt_boxes'][mask]
