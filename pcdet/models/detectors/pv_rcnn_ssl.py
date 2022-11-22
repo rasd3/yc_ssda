@@ -40,6 +40,7 @@ class PVRCNN_SSL(Detector3DTemplate):
         self.unlabeled_weight = model_cfg.UNLABELED_WEIGHT
         self.no_nms = model_cfg.NO_NMS
         self.supervise_mode = model_cfg.SUPERVISE_MODE
+        self.no_data = model_cfg.get('NO_DATA', None)
 
     def forward(self, batch_dict):
         if False:
@@ -58,6 +59,17 @@ class PVRCNN_SSL(Detector3DTemplate):
 
             labeled_mask = torch.nonzero(mask).squeeze(1).long()
             unlabeled_mask = torch.nonzero(1 - mask).squeeze(1).long()
+            #
+            if self.no_data is not None:
+                if self.no_data == 'TL':
+                    labeled_mask = labeled_mask[:1]
+                elif self.no_data == 'TU':
+                    unlabeled_mask = unlabeled_mask[:0]
+                elif self.no_data == 'SL':
+                    labeled_mask = labeled_mask[1:]
+                else:
+                    NotImplementedError('No timplement self.no_data')
+            #
             batch_dict_ema = {}
             keys = list(batch_dict.keys())
             for k in keys:

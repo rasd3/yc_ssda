@@ -75,7 +75,6 @@ class CenterPoint(Detector3DTemplate):
         batch_size = batch_dict['batch_size']
         recall_dict = {}
         pred_dicts = []
-        breakpoint()
         for index in range(batch_size):
             if batch_dict.get('batch_index', None) is not None:
                 assert batch_dict['batch_cls_preds'].shape.__len__() == 2
