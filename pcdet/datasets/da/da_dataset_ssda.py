@@ -50,6 +50,8 @@ class DADatasetSSDA(torch_data.Dataset):
         self.grid_size = self.trg_dataset.grid_size
         self.voxel_size = self.trg_dataset.voxel_size
 
+        self.src_index = [False for _ in range(len(self.src_dataset))]
+
     def __len__(self):
         if self.training:
             return len(self.trg_dataset.labeled_infos) * self.repeat
@@ -67,11 +69,23 @@ class DADatasetSSDA(torch_data.Dataset):
                 'voxel_num_points'].copy()
         return data_dict
 
+    def get_src_index(self):
+        # assumme len(src_dataset) > len(trg_dataset), get random idx
+        src_len = len(self.src_dataset)
+        if sum(self.src_index) == src_len:
+            self.src_index = [False for _ in range(src_len)]
+        idx = np.random.randint(src_len)
+        while self.src_index[idx] == True:
+            idx = np.random.randint(src_len)
+        self.src_index[idx] = True
+        return idx
+
     def __getitem__(self, index):
         trg_item = self.trg_dataset.__getitem__(index)
         if self.training:
             # SL, TL, TU
-            src_item = self.src_dataset.__getitem__(index)
+            src_idx = self.get_src_index()
+            src_item = self.src_dataset.__getitem__(src_idx)
             src_item = self.add_ema_key(src_item)
             return [src_item, trg_item[0], trg_item[1]]
         else:
