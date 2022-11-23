@@ -37,6 +37,7 @@ class PVRCNN_SSL(Detector3DTemplate):
         self.sem_thresh = model_cfg.SEM_THRESH
         self.unlabeled_supervise_cls = model_cfg.UNLABELED_SUPERVISE_CLS
         self.unlabeled_supervise_refine = model_cfg.UNLABELED_SUPERVISE_REFINE
+        self.unlabeled_supervise_box = True
         self.unlabeled_weight = model_cfg.UNLABELED_WEIGHT
         self.no_nms = model_cfg.NO_NMS
         self.supervise_mode = model_cfg.SUPERVISE_MODE
@@ -65,6 +66,9 @@ class PVRCNN_SSL(Detector3DTemplate):
                     labeled_mask = labeled_mask[:1]
                 elif self.no_data == 'TU':
                     unlabeled_mask = unlabeled_mask[:0]
+                    self.unlabeled_supervise_refine = False
+                    self.unlabeled_supervise_cls = False
+                    self.unlabeled_supervise_box = False
                 elif self.no_data == 'SL':
                     labeled_mask = labeled_mask[1:]
                 else:
@@ -233,7 +237,7 @@ class PVRCNN_SSL(Detector3DTemplate):
                         sem_score_bg = (pseudo_sem_score[unzero_inds] * (iou_max < 0.5).float()).sum(dim=0, keepdim=True) \
                                        / torch.clamp((iou_max < 0.5).float().sum(dim=0, keepdim=True), min=1.0)
                         pseudo_fgs.append(fg)
-                        'only for 100% label'
+                        #  only for 100% label
                         if self.supervise_mode >= 1:
                             filter = iou_max > 0.3
                             asgn = asgn[filter]
@@ -279,8 +283,12 @@ class PVRCNN_SSL(Detector3DTemplate):
                 ) + loss_rpn_cls[unlabeled_mask,
                                  ...].sum() * self.unlabeled_weight
 
-            loss_rpn_box = loss_rpn_box[labeled_mask, ...].sum(
-            ) + loss_rpn_box[unlabeled_mask, ...].sum() * self.unlabeled_weight
+            if not self.unlabeled_supervise_box:
+                loss_rpn_box = loss_rpn_box[labeled_mask, ...].sum()
+            else:
+                loss_rpn_box = loss_rpn_box[labeled_mask, ...].sum(
+                ) + loss_rpn_box[unlabeled_mask, ...].sum() * self.unlabeled_weight
+
             loss_point = loss_point[labeled_mask, ...].sum()
             loss_rcnn_cls = loss_rcnn_cls[labeled_mask, ...].sum()
 
@@ -312,13 +320,14 @@ class PVRCNN_SSL(Detector3DTemplate):
                 else:
                     tb_dict_[key] = tb_dict[key]
 
-            tb_dict_['pseudo_ious'] = torch.cat(pseudo_ious, dim=0).mean()
-            tb_dict_['pseudo_accs'] = torch.cat(pseudo_accs, dim=0).mean()
-            tb_dict_['sem_score_fg'] = sem_score_fg.mean()
-            tb_dict_['sem_score_bg'] = sem_score_bg.mean()
+            if len(unlabeled_mask):
+                tb_dict_['pseudo_ious'] = torch.cat(pseudo_ious, dim=0).mean()
+                tb_dict_['pseudo_accs'] = torch.cat(pseudo_accs, dim=0).mean()
+                tb_dict_['max_pseudo_box_num'] = max_pseudo_box_num
 
-            tb_dict_['max_box_num'] = max_box_num
-            tb_dict_['max_pseudo_box_num'] = max_pseudo_box_num
+                tb_dict_['sem_score_fg'] = sem_score_fg.mean()
+                tb_dict_['sem_score_bg'] = sem_score_bg.mean()
+                tb_dict_['max_box_num'] = max_box_num
 
             ret_dict = {'loss': loss}
             return ret_dict, tb_dict_, disp_dict

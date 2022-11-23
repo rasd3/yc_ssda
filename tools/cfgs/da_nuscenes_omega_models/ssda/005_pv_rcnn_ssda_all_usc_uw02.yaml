@@ -3,6 +3,12 @@ CLASS_NAMES: ['car', 'truck', 'bus', 'motorcycle', 'pedestrian']
 DATA_CONFIG:
     _BASE_CONFIG_: cfgs/dataset_configs/da_nuscenes_omega_ssda.yaml
     CLASS_NAMES: ['car', 'truck', 'bus', 'motorcycle', 'pedestrian']
+    TRG_DATASET:
+        U_SHIFT_COOR: True
+        INFO_PATH: {
+            'train': [omega_infos_1sweeps_train_train_0.05_1.pkl, omega_infos_1sweeps_unlabeled_train_0.05_1.pkl],
+            'test': [omega_infos_1sweeps_val_train_0.05_1.pkl],
+        }
 
 
 MODEL:
@@ -226,11 +232,10 @@ MODEL:
     THRESH: [0.5, 0.25, 0.25, 0.25, 0.25]
     UNLABELED_SUPERVISE_CLS: True
     UNLABELED_SUPERVISE_REFINE: True
-    UNLABELED_WEIGHT: 1.0
+    UNLABELED_WEIGHT: 0.2
     SEM_THRESH: [0.4, 0.0, 0.0, 0.0, 0.0]
     SUPERVISE_MODE: 0
     NO_NMS: False
-    NO_DATA: TU
 
 
 OPTIMIZATION:

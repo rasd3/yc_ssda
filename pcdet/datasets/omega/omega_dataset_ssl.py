@@ -15,6 +15,10 @@ from ..nuscenes.nuscenes_dataset_ssl import NuScenesDatasetSSL
 
 
 class OmegaDatasetSSL(NuScenesDatasetSSL):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.u_shift_coor = self.dataset_cfg.get('U_SHIFT_COOR', False)
+
     def include_nuscenes_data(self, mode):
         self.logger.info('Loading Omega dataset')
 
@@ -100,8 +104,8 @@ class OmegaDatasetSSL(NuScenesDatasetSSL):
             index_unlabeled = np.random.choice(len(self.unlabeled_infos), 1)[0]
             info_unlabeled = copy.deepcopy(self.unlabeled_infos[index_unlabeled])
             unlabeled_points = self.get_lidar_with_sweeps(info_unlabeled, max_sweeps=self.dataset_cfg.MAX_SWEEPS)
-            #  if self.shift_coor:
-                #  unlabeled_points[:, :3] += np.array(self.shift_coor, dtype=np.float32)
+            if self.u_shift_coor and self.shift_coor:
+                unlabeled_points[:, :3] += np.array(self.shift_coor, dtype=np.float32)
             unlabeled_input_dict = {
                 'points': unlabeled_points,
                 'frame_id': Path(info_unlabeled['lidar_path']).stem,
@@ -113,8 +117,8 @@ class OmegaDatasetSSL(NuScenesDatasetSSL):
                 else:
                     mask = None
 
-                #  if self.shift_coor:
-                    #  info_unlabeled['gt_boxes'][:, :3] += self.shift_coor
+                if self.u_shift_coor and self.shift_coor:
+                    info_unlabeled['gt_boxes'][:, :3] += self.shift_coor
                 unlabeled_input_dict.update({
                     'gt_names': info_unlabeled['gt_names'] if mask is None else info_unlabeled['gt_names'][mask],
                     'gt_boxes': info_unlabeled['gt_boxes'] if mask is None else info_unlabeled['gt_boxes'][mask]
