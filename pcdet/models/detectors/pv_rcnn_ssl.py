@@ -306,17 +306,17 @@ class PVRCNN_SSL(Detector3DTemplate):
                     tb_dict_[key + "_labeled"] = tb_dict[key][labeled_mask,
                                                               ...].sum()
                     tb_dict_[key + "_unlabeled"] = tb_dict[key][unlabeled_mask,
-                                                                ...].sum()
+                                                                ...].sum() * self.unlabeled_weight
                 elif 'acc' in key:
                     tb_dict_[key + "_labeled"] = tb_dict[key][labeled_mask,
                                                               ...].sum()
                     tb_dict_[key + "_unlabeled"] = tb_dict[key][unlabeled_mask,
-                                                                ...].sum()
+                                                                ...].sum() * self.unlabeled_weight
                 elif 'point_pos_num' in key:
                     tb_dict_[key + "_labeled"] = tb_dict[key][labeled_mask,
                                                               ...].sum()
                     tb_dict_[key + "_unlabeled"] = tb_dict[key][unlabeled_mask,
-                                                                ...].sum()
+                                                                ...].sum() * self.unlabeled_weight
                 else:
                     tb_dict_[key] = tb_dict[key]
 
