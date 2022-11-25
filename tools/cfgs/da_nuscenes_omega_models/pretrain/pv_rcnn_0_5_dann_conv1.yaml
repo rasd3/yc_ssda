@@ -66,6 +66,7 @@ MODEL:
     BACKBONE_2D:
         NAME: BaseBEVBackbone
 
+        # for dann
         USE_DOMAIN_CLASSIFIER: True
         DC_VERSION: CONV_1
         LOSS_CONFIG:

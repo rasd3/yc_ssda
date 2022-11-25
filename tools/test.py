@@ -180,6 +180,21 @@ def main():
 
     ckpt_dir = args.ckpt_dir if args.ckpt_dir is not None else output_dir / 'ckpt'
 
+    if 'DANN' in cfg.DATA_CONFIG.DATASET:
+        # for evaluate target dataset
+        cfg.DATA_CONFIG.TARGET = True
+        trg_test_set, trg_test_loader, trg_sampler = build_dataloader(
+            dataset_cfg=cfg.DATA_CONFIG,
+            class_names=cfg.CLASS_NAMES,
+            batch_size=args.eval_batch_size,
+            dist=dist_train, workers=args.workers, logger=logger, 
+            training=False
+        )
+        with torch.no_grad():
+            if args.eval_all:
+                args.start_epoch = max(cfg.OPTIMIZATION.NUM_EPOCHS - 5, 0)
+                repeat_eval_ckpt(model, test_loader, args, eval_output_dir, logger, ckpt_dir, dist_test=dist_test)
+
     test_set, test_loader, sampler = build_dataloader(
         dataset_cfg=cfg.DATA_CONFIG,
         class_names=cfg.CLASS_NAMES,
@@ -194,6 +209,7 @@ def main():
             repeat_eval_ckpt(model, test_loader, args, eval_output_dir, logger, ckpt_dir, dist_test=dist_test)
         else:
             eval_single_ckpt(model, test_loader, args, eval_output_dir, logger, epoch_id, dist_test=dist_test)
+
 
 
 if __name__ == '__main__':

@@ -142,6 +142,7 @@ def main():
 
     tb_log = SummaryWriter(log_dir=str(output_dir / 'tensorboard')) if cfg.LOCAL_RANK == 0 else None
 
+    cfg.DATA_CONFIG.TARGET = False
     # -----------------------create dataloader & network & optimizer---------------------------
     train_set, train_loader, train_sampler = build_dataloader(
         dataset_cfg=cfg.DATA_CONFIG,
@@ -234,6 +235,23 @@ def main():
         test_loader, args, eval_output_dir, logger, ckpt_dir,
         dist_test=dist_train
     )
+    if 'DANN' in cfg.DATA_CONFIG.DATASET:
+        # for evaluate target dataset
+        cfg.DATA_CONFIG.TARGET = True
+        trg_test_set, trg_test_loader, trg_sampler = build_dataloader(
+            dataset_cfg=cfg.DATA_CONFIG,
+            class_names=cfg.CLASS_NAMES,
+            batch_size=args.eval_batch_size,
+            dist=dist_train, workers=args.workers, logger=logger, 
+            training=False
+        )
+        eval_output_dir = output_dir / 'eval' / 'eval_with_train_trg'
+        eval_output_dir.mkdir(parents=True, exist_ok=True)
+        repeat_eval_ckpt(
+            model.module if dist_train else model,
+            trg_test_loader, args, eval_output_dir, logger, ckpt_dir,
+            dist_test=dist_train
+        )
     logger.info('**********************End evaluation %s/%s(%s)**********************' %
                 (cfg.EXP_GROUP_PATH, cfg.TAG, args.extra_tag))
 

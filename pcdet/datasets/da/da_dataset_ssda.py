@@ -227,22 +227,31 @@ class DADatasetDANN(DADatasetSSDA):
         self.point_cloud_range = self.src_dataset.point_cloud_range
         self.grid_size = self.src_dataset.grid_size
         self.voxel_size = self.src_dataset.voxel_size
+        self.target = dataset_cfg.TARGET
 
     def __len__(self):
         if self.training:
             return len(self.src_dataset.infos) * self.repeat
         else:
-            return len(self.src_dataset.infos)
+            if self.target:
+                return len(self.trg_dataset.infos)
+            else:
+                return len(self.src_dataset.infos)
 
     def __getitem__(self, index):
-        src_item = self.src_dataset.__getitem__(index)
         if self.training:
             # SL, TL(for only DANN)
+            src_item = self.src_dataset.__getitem__(index)
             trg_item = self.trg_dataset.__getitem__(index)
             return [src_item, trg_item]
         else:
-            # SL
-            return src_item
+            # whether target or not
+            if self.target:
+                trg_item = self.trg_dataset.__getitem__(index)
+                return trg_item
+            else:
+                src_item = self.src_dataset.__getitem__(index)
+                return src_item
 
     @staticmethod
     def collate_batch(batch_list, _unused=False):
@@ -299,8 +308,12 @@ class DADatasetDANN(DADatasetSSDA):
     def evaluation(self, det_annos, class_names, **kwargs):
         if kwargs['eval_metric'] == 'kitti':
             eval_det_annos = copy.deepcopy(det_annos)
-            eval_gt_annos = copy.deepcopy(self.src_dataset.infos)
-            return self.src_dataset.kitti_eval(eval_det_annos, eval_gt_annos, class_names)
+            if self.target:
+                eval_gt_annos = copy.deepcopy(self.trg_dataset.infos)
+                return self.trg_dataset.kitti_eval(eval_det_annos, eval_gt_annos, class_names)
+            else:
+                eval_gt_annos = copy.deepcopy(self.src_dataset.infos)
+                return self.src_dataset.kitti_eval(eval_det_annos, eval_gt_annos, class_names)
         elif kwargs['eval_metric'] == 'nuscenes':
             return self.src_dataset.nuscene_eval(det_annos, class_names, **kwargs)
         else:
