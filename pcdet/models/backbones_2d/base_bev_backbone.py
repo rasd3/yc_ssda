@@ -100,8 +100,8 @@ class BaseBEVBackbone(nn.Module):
         self.batch_size = -1
         self.use_domain_cls = self.model_cfg.get('USE_DOMAIN_CLASSIFIER',
                                                  False)
+        self.dc_version = self.model_cfg.get('DC_VERSION', None)
         if self.use_domain_cls:
-            self.dc_version = self.model_cfg.get('DC_VERSION', None)
             self.domain_cls = dc_model_dict[self.dc_version]()
             self.domain_loss_cfg = self.model_cfg.get('LOSS_CONFIG', None)
             if self.domain_loss_cfg.LOSS_DC == 'NLL':
@@ -200,6 +200,8 @@ class BaseBEVBackbone(nn.Module):
 
             self.forward_ret_dict['domain_output'] = domain_out
             # remove target data
+            self.remove_trg_data(data_dict)
+        if not self.use_domain_cls and self.dc_version:
             self.remove_trg_data(data_dict)
 
         return data_dict

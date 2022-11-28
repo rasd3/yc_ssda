@@ -127,6 +127,7 @@ def repeat_eval_ckpt(model, test_loader, args, eval_output_dir, logger, ckpt_dir
 
         # record this epoch which has been evaluated
         with open(ckpt_record_file, 'a') as f:
+            pass
             print('%s' % cur_epoch_id, file=f)
         logger.info('Epoch %s has been evaluated' % cur_epoch_id)
 
@@ -180,21 +181,7 @@ def main():
 
     ckpt_dir = args.ckpt_dir if args.ckpt_dir is not None else output_dir / 'ckpt'
 
-    if 'DANN' in cfg.DATA_CONFIG.DATASET:
-        # for evaluate target dataset
-        cfg.DATA_CONFIG.TARGET = True
-        trg_test_set, trg_test_loader, trg_sampler = build_dataloader(
-            dataset_cfg=cfg.DATA_CONFIG,
-            class_names=cfg.CLASS_NAMES,
-            batch_size=args.eval_batch_size,
-            dist=dist_train, workers=args.workers, logger=logger, 
-            training=False
-        )
-        with torch.no_grad():
-            if args.eval_all:
-                args.start_epoch = max(cfg.OPTIMIZATION.NUM_EPOCHS - 5, 0)
-                repeat_eval_ckpt(model, test_loader, args, eval_output_dir, logger, ckpt_dir, dist_test=dist_test)
-
+    cfg.DATA_CONFIG.TARGET = False
     test_set, test_loader, sampler = build_dataloader(
         dataset_cfg=cfg.DATA_CONFIG,
         class_names=cfg.CLASS_NAMES,
@@ -210,6 +197,22 @@ def main():
         else:
             eval_single_ckpt(model, test_loader, args, eval_output_dir, logger, epoch_id, dist_test=dist_test)
 
+    if 'DANN' in cfg.DATA_CONFIG.DATASET:
+        # for evaluate target dataset
+        cfg.DATA_CONFIG.TARGET = True
+        trg_test_set, trg_test_loader, trg_sampler = build_dataloader(
+            dataset_cfg=cfg.DATA_CONFIG,
+            class_names=cfg.CLASS_NAMES,
+            batch_size=args.batch_size,
+            dist=dist_test, workers=args.workers, logger=logger, 
+            training=False
+        )
+        model = build_network(model_cfg=cfg.MODEL, num_class=len(cfg.CLASS_NAMES), dataset=trg_test_set)
+        with torch.no_grad():
+            if args.eval_all:
+                args.start_epoch = max(cfg.OPTIMIZATION.NUM_EPOCHS - 5, 0)
+                repeat_eval_ckpt(model, trg_test_loader, args, eval_output_dir, logger, ckpt_dir, dist_test=dist_test)
+        cfg.DATA_CONFIG.TARGET = False
 
 
 if __name__ == '__main__':

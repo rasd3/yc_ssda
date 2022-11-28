@@ -1,20 +1,14 @@
-CLASS_NAMES: ['car', 'truck', 'bus', 
-              'motorcycle', 'pedestrian']
+CLASS_NAMES: ['car', 'truck', 'bus', 'motorcycle', 'pedestrian']
 
 DATA_CONFIG:
-    _BASE_CONFIG_: cfgs/dataset_configs/omega_dataset_ssl.yaml
-    DATA_PATH: '../data/omega'
-    VERSION: 'v0.5-omega-trainval'
-    # TARGET: True
-    SHIFT_COOR: [0.0, 0.0, -1.8]
-    MAX_SWEEPS: 1
-    REPEAT: 1
-    PRED_VELOCITY: False
-    BALANCED_RESAMPLING: False
-    INFO_PATH: {
-        'train': [omega_infos_1sweeps_train_train_0.20_1.pkl, omega_infos_1sweeps_unlabeled_train_0.20_1.pkl],
-        'test': [omega_infos_1sweeps_val_train_0.20_1.pkl],
-    }
+    _BASE_CONFIG_: cfgs/dataset_configs/da_nuscenes_omega_ssda.yaml
+    CLASS_NAMES: ['car', 'truck', 'bus', 'motorcycle', 'pedestrian']
+    TRG_DATASET:
+        U_SHIFT_COOR: True
+        INFO_PATH: {
+            'train': [omega_infos_1sweeps_train_train_0.05_1.pkl, omega_infos_1sweeps_unlabeled_train_0.05_1.pkl],
+            'test': [omega_infos_1sweeps_val_train_0.05_1.pkl],
+        }
 
 
 MODEL:
@@ -49,7 +43,7 @@ MODEL:
         NUM_DIR_BINS: 2
 
         ANCHOR_GENERATOR_CONFIG: [
-            {
+          {
                 'class_name': car,
                 'anchor_sizes': [[4.63, 1.97, 1.74]],
                 'anchor_rotations': [0, 1.57],
@@ -239,14 +233,14 @@ MODEL:
     UNLABELED_SUPERVISE_CLS: True
     UNLABELED_SUPERVISE_REFINE: True
     UNLABELED_WEIGHT: 1.0
-    SEM_THRESH: [0.4, 0.0, 0.0, 0.0, 0.0]
+    SEM_THRESH: [0.1, 0.0, 0.0, 0.0, 0.0]
     SUPERVISE_MODE: 0
     NO_NMS: False
 
 
 OPTIMIZATION:
-    BATCH_SIZE_PER_GPU: 1
-    EVAL_BATCH_SIZE_PER_GPU: 8
+    BATCH_SIZE_PER_GPU: 1 #2
+    EVAL_BATCH_SIZE_PER_GPU: 8 #8
     NUM_EPOCHS: 50
 
     OPTIMIZER: adam_onecycle

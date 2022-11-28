@@ -1,24 +1,56 @@
-CLASS_NAMES: ['car', 'truck', 'bus', 
-              'motorcycle', 'pedestrian']
+CLASS_NAMES: ['car', 'truck', 'bus', 'motorcycle', 'pedestrian']
 
 DATA_CONFIG:
-    _BASE_CONFIG_: cfgs/dataset_configs/omega_dataset_ssl.yaml
-    DATA_PATH: '../data/omega'
-    VERSION: 'v0.5-omega-trainval'
-    # TARGET: True
-    SHIFT_COOR: [0.0, 0.0, -1.8]
-    MAX_SWEEPS: 1
-    REPEAT: 1
+    _BASE_CONFIG_: cfgs/dataset_configs/da_nuscenes_omega_dann_dataset.yaml
+    CLASS_NAMES: ['car', 'truck', 'bus', 'motorcycle', 'pedestrian']
+
     PRED_VELOCITY: False
-    BALANCED_RESAMPLING: False
-    INFO_PATH: {
-        'train': [omega_infos_1sweeps_train_train_0.20_1.pkl, omega_infos_1sweeps_unlabeled_train_0.20_1.pkl],
-        'test': [omega_infos_1sweeps_val_train_0.20_1.pkl],
-    }
+    REPEAT: 1
+
+    MAX_SWEEPS: 10
+    SRC_DATASET:
+        INFO_PATH: {
+            'train': [nuscenes_infos_10sweeps_train_train_0.25_1.pkl],
+            'test': [nuscenes_infos_10sweeps_val_train_0.25_1.pkl],
+        }
+        DATA_AUGMENTOR:
+            # DISABLE_AUG_LIST: ['random_object_scaling', 'random_world_flip', 'random_world_rotation', 'random_world_scaling', 'gt_sampling']
+            DISABLE_AUG_LIST: ['random_object_scaling']
+            AUG_CONFIG_LIST:
+                - NAME: gt_sampling
+                  DB_INFO_PATH:
+                      - nuscenes_dbinfos_10sweeps_train_0.25_1.pkl
+                  PREPARE: {
+                     filter_by_min_points: [
+                         'car:5','truck:5', 'bus:5', 'motorcycle:5', 'pedestrian:5'
+                     ],
+                  }
+
+                  SAMPLE_GROUPS: [
+                      'car:2','truck:3', 'bus:4', 'motorcycle:6', 'pedestrian:2'
+                  ]
+
+                  NUM_POINT_FEATURES: 5
+                  DATABASE_WITH_FAKELIDAR: False
+                  REMOVE_EXTRA_WIDTH: [0.0, 0.0, 0.0]
+                  LIMIT_WHOLE_SCENE: True
+
+                - NAME: random_object_scaling
+                  SCALE_UNIFORM_NOISE: [0.75, 1.0]
+
+                - NAME: random_world_flip
+                  ALONG_AXIS_LIST: ['x', 'y']
+
+                - NAME: random_world_rotation
+                  WORLD_ROT_ANGLE: [-0.3925, 0.3925]
+
+                - NAME: random_world_scaling
+                  WORLD_SCALE_RANGE: [0.95, 1.05]
+
 
 
 MODEL:
-    NAME: PVRCNN_SSL
+    NAME: PVRCNN
 
     VFE:
         NAME: MeanVFE
@@ -32,6 +64,15 @@ MODEL:
 
     BACKBONE_2D:
         NAME: BaseBEVBackbone
+
+        # for dann
+        USE_DOMAIN_CLASSIFIER: True
+        DC_VERSION: CONV_1
+        LOSS_CONFIG:
+            LOSS_DC: BCE
+            LOSS_WEIGHTS: {
+                'dc_weight': 0.2,
+            }
 
         LAYER_NUMS: [5, 5]
         LAYER_STRIDES: [1, 2]
@@ -49,7 +90,7 @@ MODEL:
         NUM_DIR_BINS: 2
 
         ANCHOR_GENERATOR_CONFIG: [
-            {
+           {
                 'class_name': car,
                 'anchor_sizes': [[4.63, 1.97, 1.74]],
                 'anchor_rotations': [0, 1.57],
@@ -226,6 +267,7 @@ MODEL:
         SCORE_THRESH: 0.1
         OUTPUT_RAW_SCORE: False
 
+        # EVAL_METRIC: nuscenes
         EVAL_METRIC: kitti
 
         NMS_CONFIG:
@@ -235,19 +277,11 @@ MODEL:
             NMS_PRE_MAXSIZE: 4096
             NMS_POST_MAXSIZE: 500
 
-    THRESH: [0.5, 0.25, 0.25, 0.25, 0.25]
-    UNLABELED_SUPERVISE_CLS: True
-    UNLABELED_SUPERVISE_REFINE: True
-    UNLABELED_WEIGHT: 1.0
-    SEM_THRESH: [0.4, 0.0, 0.0, 0.0, 0.0]
-    SUPERVISE_MODE: 0
-    NO_NMS: False
-
 
 OPTIMIZATION:
-    BATCH_SIZE_PER_GPU: 1
+    BATCH_SIZE_PER_GPU: 4
     EVAL_BATCH_SIZE_PER_GPU: 8
-    NUM_EPOCHS: 50
+    NUM_EPOCHS: 20
 
     OPTIMIZER: adam_onecycle
     LR: 0.01
