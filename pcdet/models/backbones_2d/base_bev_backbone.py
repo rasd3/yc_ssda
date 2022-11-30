@@ -134,26 +134,27 @@ class BaseBEVBackbone(nn.Module):
 
     def remove_trg_data(self, data_dict):
         batch_size = data_dict['batch_size']
-        data_dict['spatial_features'] = data_dict['spatial_features'][:batch_size // 2]
-        data_dict['spatial_features_2d'] = data_dict['spatial_features_2d'][:batch_size // 2]
+        b_mask = torch.tensor([True, False] * (batch_size // 2), dtype=torch.bool)
+        data_dict['spatial_features'] = data_dict['spatial_features'][b_mask]
+        data_dict['spatial_features_2d'] = data_dict['spatial_features_2d'][b_mask]
         data_dict['batch_size'] = batch_size // 2
-        data_dict['gt_boxes'] = data_dict['gt_boxes'][:batch_size//2]
-        pt_mask = data_dict['points'][:, 0] < batch_size // 2
+        data_dict['gt_boxes'] = data_dict['gt_boxes'][b_mask]
+        pt_mask = data_dict['points'][:, 0] % 2 == 0
         data_dict['points'] = data_dict['points'][pt_mask]
-        vox_mask = data_dict['voxel_coords'][:, 0] < batch_size // 2
+        data_dict['points'][:, 0] = data_dict['points'][:, 0] // 2
+        vox_mask = data_dict['voxel_coords'][:, 0] % 2 == 0
         data_dict['voxel_coords'] = data_dict['voxel_coords'][vox_mask]
+        data_dict['voxel_coords'][:, 0] = data_dict['voxel_coords'][:, 0] // 2
         data_dict['voxels'] = data_dict['voxels'][vox_mask]
         data_dict['voxel_features'] = data_dict['voxel_features'][vox_mask]
         multi_scale_3d_features = data_dict['multi_scale_3d_features']
         for key in multi_scale_3d_features.keys():
             indices = multi_scale_3d_features[key].indices
-            ms_mask = indices[:, 0] < batch_size // 2
+            ms_mask = indices[:, 0] % 2 == 0
             multi_scale_3d_features[key].indices = multi_scale_3d_features[
                 key].indices[ms_mask]
+            multi_scale_3d_features[key].indices[:, 0] = multi_scale_3d_features[key].indices[:, 0] // 2
             multi_scale_3d_features[key].features = multi_scale_3d_features[key].features[ms_mask]
-            #  multi_scale_3d_features[key] = multi_scale_3d_features[
-                #  key].replace_feature(
-                    #  multi_scale_3d_features[key].features[ms_mask])
 
     def forward(self, data_dict):
         """
@@ -201,7 +202,7 @@ class BaseBEVBackbone(nn.Module):
             self.forward_ret_dict['domain_output'] = domain_out
             # remove target data
             self.remove_trg_data(data_dict)
-        if not self.use_domain_cls and self.dc_version:
+        if not self.use_domain_cls and self.dc_version and 'cur_train_meta' in data_dict:
             self.remove_trg_data(data_dict)
 
         return data_dict

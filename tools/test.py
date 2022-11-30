@@ -182,21 +182,6 @@ def main():
     ckpt_dir = args.ckpt_dir if args.ckpt_dir is not None else output_dir / 'ckpt'
 
     cfg.DATA_CONFIG.TARGET = False
-    test_set, test_loader, sampler = build_dataloader(
-        dataset_cfg=cfg.DATA_CONFIG,
-        class_names=cfg.CLASS_NAMES,
-        batch_size=args.batch_size,
-        dist=dist_test, workers=args.workers, logger=logger, training=False
-    )
-
-    model = build_network(model_cfg=cfg.MODEL, num_class=len(cfg.CLASS_NAMES), dataset=test_set)
-    with torch.no_grad():
-        if args.eval_all:
-            args.start_epoch = max(cfg.OPTIMIZATION.NUM_EPOCHS - 5, 0)
-            repeat_eval_ckpt(model, test_loader, args, eval_output_dir, logger, ckpt_dir, dist_test=dist_test)
-        else:
-            eval_single_ckpt(model, test_loader, args, eval_output_dir, logger, epoch_id, dist_test=dist_test)
-
     if 'DANN' in cfg.DATA_CONFIG.DATASET:
         # for evaluate target dataset
         cfg.DATA_CONFIG.TARGET = True
@@ -212,7 +197,24 @@ def main():
             if args.eval_all:
                 args.start_epoch = max(cfg.OPTIMIZATION.NUM_EPOCHS - 5, 0)
                 repeat_eval_ckpt(model, trg_test_loader, args, eval_output_dir, logger, ckpt_dir, dist_test=dist_test)
+            else:
+                eval_single_ckpt(model, trg_test_loader, args, eval_output_dir, logger, epoch_id, dist_test=dist_test)
         cfg.DATA_CONFIG.TARGET = False
+    test_set, test_loader, sampler = build_dataloader(
+        dataset_cfg=cfg.DATA_CONFIG,
+        class_names=cfg.CLASS_NAMES,
+        batch_size=args.batch_size,
+        dist=dist_test, workers=args.workers, logger=logger, training=False
+    )
+
+    model = build_network(model_cfg=cfg.MODEL, num_class=len(cfg.CLASS_NAMES), dataset=test_set)
+    with torch.no_grad():
+        if args.eval_all:
+            args.start_epoch = max(cfg.OPTIMIZATION.NUM_EPOCHS - 5, 0)
+            repeat_eval_ckpt(model, test_loader, args, eval_output_dir, logger, ckpt_dir, dist_test=dist_test)
+        else:
+            eval_single_ckpt(model, test_loader, args, eval_output_dir, logger, epoch_id, dist_test=dist_test)
+
 
 
 if __name__ == '__main__':
