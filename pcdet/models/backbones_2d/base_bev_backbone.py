@@ -117,13 +117,14 @@ class BaseBEVBackbone(nn.Module):
         batch_size = self.batch_size
         tb_dict = {} if tb_dict is None else tb_dict
         domain_output = self.forward_ret_dict['domain_output']
+        trg_idx = [i*2+1 for i in range(batch_size // 2)]
         if 'POOL' in self.dc_version:
             domain_label = torch.zeros(batch_size, dtype=torch.long).cuda()
-            domain_label[batch_size // 2:].fill_(1)
+            domain_label[trg_idx] = 1
         elif 'CONV' in self.dc_version:
             domain_label = torch.FloatTensor(domain_output.shape).cuda()
-            domain_label[:batch_size // 2].fill_(0.)
-            domain_label[batch_size // 2:].fill_(1.)
+            domain_label[trg_idx] = 0.
+            domain_label[trg_idx] = 1.
 
         dc_loss_weight = self.domain_loss_cfg.LOSS_WEIGHTS.dc_weight
         domain_cls_loss = self.domain_cls_loss(domain_output, domain_label)
