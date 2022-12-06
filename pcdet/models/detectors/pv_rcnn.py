@@ -1,3 +1,5 @@
+import torch
+
 from .detector3d_template import Detector3DTemplate
 from pcdet.utils.simplevis import nuscene_vis
 
@@ -13,6 +15,7 @@ class PVRCNN(Detector3DTemplate):
             'dense_head', 'point_head', 'roi_head'
         ]
         self.module_list = self.build_networks()
+        self.only_domain_loss = False
 
     def forward(self, batch_dict):
         if False:
@@ -55,11 +58,13 @@ class PVRCNN(Detector3DTemplate):
             return pred_dicts, recall_dicts, {}
 
     def get_training_loss(self):
-        disp_dict = {}
-        loss_rpn, tb_dict = self.dense_head.get_loss()
-        loss_point, tb_dict = self.point_head.get_loss(tb_dict)
-        loss_rcnn, tb_dict = self.roi_head.get_loss(tb_dict)
-        loss = loss_rpn + loss_point + loss_rcnn
+        disp_dict, tb_dict = {}, {}
+        loss = torch.tensor(0.).cuda()
+        if not self.only_domain_loss:
+            loss_rpn, tb_dict = self.dense_head.get_loss()
+            loss_point, tb_dict = self.point_head.get_loss(tb_dict)
+            loss_rcnn, tb_dict = self.roi_head.get_loss(tb_dict)
+            loss = loss + loss_rpn + loss_point + loss_rcnn
 
         if self.backbone_2d.use_domain_cls:
             loss_domain, tb_dict = self.backbone_2d.get_loss(tb_dict)

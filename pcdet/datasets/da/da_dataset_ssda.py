@@ -228,6 +228,7 @@ class DADatasetDANN(DADatasetSSDA):
         self.grid_size = self.src_dataset.grid_size
         self.voxel_size = self.src_dataset.voxel_size
         self.target = dataset_cfg.TARGET
+        self.divide_data = dataset_cfg.get('DANN_DATA_SPLIT', False)
 
     def __len__(self):
         if self.training:
@@ -253,57 +254,74 @@ class DADatasetDANN(DADatasetSSDA):
                 src_item = self.src_dataset.__getitem__(index)
                 return src_item
 
-    @staticmethod
-    def collate_batch(batch_list, _unused=False):
+    def collate_batch(self, batch_list, _unused=False):
+        def collate_ret_dict(b_size, d_dict):
+            ret = {}
+
+            for key, val in d_dict.items():
+                try:
+                    if key in [
+                            'voxels', 'voxel_num_points', 'voxels_ema',
+                            'voxel_num_points_ema'
+                    ]:
+                        ret[key] = np.concatenate(val, axis=0)
+                    elif key in [
+                            'points', 'voxel_coords', 'points_ema',
+                            'voxel_coords_ema'
+                    ]:
+                        coors = []
+                        for i, coor in enumerate(val):
+                            coor_pad = np.pad(coor, ((0, 0), (1, 0)),
+                                              mode='constant',
+                                              constant_values=i)
+                            coors.append(coor_pad)
+                        ret[key] = np.concatenate(coors, axis=0)
+                    elif key in ['gt_boxes', 'gt_boxes_ema']:
+                        max_gt = max([len(x) for x in val])
+                        batch_gt_boxes3d = np.zeros(
+                            (b_size, max_gt, val[0].shape[-1]),
+                            dtype=np.float32)
+                        for k in range(b_size):
+                            batch_gt_boxes3d[k, :val[k].__len__(), :] = val[k]
+                        ret[key] = batch_gt_boxes3d
+                    else:
+                        ret[key] = np.stack(val, axis=0)
+                except:
+                    print('Error in collate_batch: key=%s' % key)
+                    raise TypeError
+
+            ret['batch_size'] = batch_size
+            return ret
+
         data_dict = defaultdict(list)
-        if isinstance(batch_list[0], list):
+        if isinstance(batch_list[0], list) and self.divide_data:
+            src_data_dict = defaultdict(list)
+            trg_data_dict = defaultdict(list)
+            for cur_sample in batch_list:
+                for key, val in cur_sample[0].items():
+                    src_data_dict[key].append(val)
+                for key, val in cur_sample[1].items():
+                    trg_data_dict[key].append(val)
+            batch_size = len(batch_list)
+            src_ret = collate_ret_dict(batch_size, src_data_dict)
+            trg_ret = collate_ret_dict(batch_size, trg_data_dict)
+            return src_ret, trg_ret
+        elif isinstance(batch_list[0], list):
             for cur_sample in batch_list:
                 for key, val in cur_sample[0].items():
                     data_dict[key].append(val)
                 for key, val in cur_sample[1].items():
                     data_dict[key].append(val)
             batch_size = len(batch_list) * 2
+            ret = collate_ret_dict(batch_size, data_dict)
+            return ret
         else:
             for cur_sample in batch_list:
                 for key, val in cur_sample.items():
                     data_dict[key].append(val)
             batch_size = len(batch_list)
-        ret = {}
-
-        for key, val in data_dict.items():
-            try:
-                if key in [
-                        'voxels', 'voxel_num_points', 'voxels_ema',
-                        'voxel_num_points_ema'
-                ]:
-                    ret[key] = np.concatenate(val, axis=0)
-                elif key in [
-                        'points', 'voxel_coords', 'points_ema',
-                        'voxel_coords_ema'
-                ]:
-                    coors = []
-                    for i, coor in enumerate(val):
-                        coor_pad = np.pad(coor, ((0, 0), (1, 0)),
-                                          mode='constant',
-                                          constant_values=i)
-                        coors.append(coor_pad)
-                    ret[key] = np.concatenate(coors, axis=0)
-                elif key in ['gt_boxes', 'gt_boxes_ema']:
-                    max_gt = max([len(x) for x in val])
-                    batch_gt_boxes3d = np.zeros(
-                        (batch_size, max_gt, val[0].shape[-1]),
-                        dtype=np.float32)
-                    for k in range(batch_size):
-                        batch_gt_boxes3d[k, :val[k].__len__(), :] = val[k]
-                    ret[key] = batch_gt_boxes3d
-                else:
-                    ret[key] = np.stack(val, axis=0)
-            except:
-                print('Error in collate_batch: key=%s' % key)
-                raise TypeError
-
-        ret['batch_size'] = batch_size
-        return ret
+            ret = collate_ret_dict(batch_size, data_dict)
+            return ret
 
     def evaluation(self, det_annos, class_names, **kwargs):
         if kwargs['eval_metric'] == 'kitti':

@@ -73,9 +73,11 @@ def train_one_epoch(model, optimizer, train_loader, model_func, lr_scheduler, ac
         pbar.close()
     return accumulated_iter
 
-def train_one_epoch_dsn(model, optimizer, train_loader, model_func, lr_scheduler, accumulated_iter, 
-                        optim_cfg, rank, tbar, total_it_each_epoch, dataloader_iter, tb_log=None, 
-                        leave_pbar=False, cur_epoch=0, total_epochs=0):
+
+def train_one_epoch_dann(model, optimizer, train_loader, model_func, lr_scheduler, accumulated_iter, optim_cfg,
+                    rank, tbar, total_it_each_epoch, dataloader_iter, tb_log=None, leave_pbar=False,
+                    cur_epoch=0, total_epochs=0,
+                    ):
     if total_it_each_epoch == len(train_loader):
         dataloader_iter = iter(train_loader)
 
@@ -88,13 +90,12 @@ def train_one_epoch_dsn(model, optimizer, train_loader, model_func, lr_scheduler
         'total_it_each_epoch': total_it_each_epoch,
     }
 
-    breakpoint()
     for cur_it in range(total_it_each_epoch):
         try:
-            batch = next(dataloader_iter)
+            src_batch, trg_batch = next(dataloader_iter)
         except StopIteration:
             dataloader_iter = iter(train_loader)
-            batch = next(dataloader_iter)
+            src_batch, trg_batch = next(dataloader_iter)
             print('new iters')
 
         lr_scheduler.step(accumulated_iter)
@@ -111,13 +112,22 @@ def train_one_epoch_dsn(model, optimizer, train_loader, model_func, lr_scheduler
         optimizer.zero_grad()
 
         cur_train_dict['cur_it'] = cur_it
-        batch['cur_train_meta'] = cur_train_dict
+        src_batch['cur_train_meta'] = cur_train_dict
+        trg_batch['cur_train_meta'] = cur_train_dict
 
-        loss, tb_dict, disp_dict = model_func(model, batch)
+        model.only_domain_loss = False
+        src_loss, tb_dict, disp_dict = model_func(model, src_batch)
+        model.only_domain_loss = True
+        trg_loss, trg_tb_dict, trg_disp_dict = model_func(model, trg_batch)
 
+        tb_dict['src_domain_cls_loss'] = tb_dict.pop('domain_cls_loss')
+        tb_dict['trg_domain_cls_loss'] = trg_tb_dict['domain_cls_loss']
+
+        loss = src_loss + trg_loss
         loss.backward()
+
         clip_grad_norm_(model.parameters(), optim_cfg.GRAD_NORM_CLIP)
-        optikizer.step()
+        optimizer.step()
 
         accumulated_iter += 1
         disp_dict.update({'loss': loss.item(), 'lr': cur_lr})
@@ -161,8 +171,8 @@ def train_model(model, optimizer, train_loader, model_func, lr_scheduler, optim_
                 cur_scheduler = lr_warmup_scheduler
             else:
                 cur_scheduler = lr_scheduler
-            if optim_cfg.get('DSNORM', False):
-                train_epoch_func = train_one_epoch_dsn
+            if 'DANN' in type(train_loader.dataset).__name__ and train_loader.dataset.divide_data:
+                train_epoch_func = train_one_epoch_dann
             else:
                 train_epoch_func = train_one_epoch
             accumulated_iter = train_epoch_func(
