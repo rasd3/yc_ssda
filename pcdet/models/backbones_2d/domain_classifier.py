@@ -41,7 +41,7 @@ class pool_1(nn.Module):
         layers = nn.Sequential()
         layers.add_module('d_fc1', nn.Linear(512, 128))
         layers.add_module('d_bn1', nn.BatchNorm1d(128))
-        layers.add_module('d_relu1', nn.ReLU(True))
+        layers.add_module('d_relu1', nn.ReLU(False))
         layers.add_module('d_fc2', nn.Linear(128, 2))
         layers.add_module('d_softmax', nn.LogSoftmax(dim=1))
         self.layers = layers
@@ -64,19 +64,19 @@ class pool_2(nn.Module):
 
         layers1 = nn.Sequential()
         layers1.add_module('conv1', nn.Conv2d(512, 256, kernel_size=3, padding=1, stride=2))
-        layers1.add_module('leaky_relu1', nn.LeakyReLU(negative_slope=0.2, inplace=True))
+        layers1.add_module('leaky_relu1', nn.LeakyReLU(negative_slope=0.2, inplace=False))
         layers1.add_module('conv2', nn.Conv2d(256, 128, kernel_size=3, padding=1, stride=2))
-        layers1.add_module('leaky_relu2', nn.LeakyReLU(negative_slope=0.2, inplace=True))
+        layers1.add_module('leaky_relu2', nn.LeakyReLU(negative_slope=0.2, inplace=False))
         layers1.add_module('conv3', nn.Conv2d(128, 64, kernel_size=3, padding=1, stride=2))
-        layers1.add_module('leaky_relu3', nn.LeakyReLU(negative_slope=0.2, inplace=True))
+        layers1.add_module('leaky_relu3', nn.LeakyReLU(negative_slope=0.2, inplace=False))
         layers1.add_module('conv4', nn.Conv2d(64, 16, kernel_size=3, padding=1, stride=2))
-        layers1.add_module('leaky_relu4', nn.LeakyReLU(negative_slope=0.2, inplace=True))
+        layers1.add_module('leaky_relu4', nn.LeakyReLU(negative_slope=0.2, inplace=False))
         self.layers1 = layers1
 
         layers2 = nn.Sequential()
         layers2.add_module('d_fc1', nn.Linear(1024, 128))
         layers2.add_module('d_bn1', nn.BatchNorm1d(128))
-        layers2.add_module('d_relu1', nn.ReLU(True))
+        layers2.add_module('d_relu1', nn.ReLU(False))
         layers2.add_module('d_fc2', nn.Linear(128, 2))
         layers2.add_module('d_softmax', nn.LogSoftmax(dim=1))
         self.layers2 = layers2
@@ -98,11 +98,11 @@ class conv_1(nn.Module):
 
         layers = nn.Sequential()
         layers.add_module('conv1', nn.Conv2d(512, 256, kernel_size=3, padding=1))
-        layers.add_module('leaky_relu1', nn.LeakyReLU(negative_slope=0.2, inplace=True))
+        layers.add_module('leaky_relu1', nn.LeakyReLU(negative_slope=0.2, inplace=False))
         layers.add_module('conv2', nn.Conv2d(256, 128, kernel_size=3, padding=1))
-        layers.add_module('leaky_relu2', nn.LeakyReLU(negative_slope=0.2, inplace=True))
+        layers.add_module('leaky_relu2', nn.LeakyReLU(negative_slope=0.2, inplace=False))
         layers.add_module('conv3', nn.Conv2d(128, 128, kernel_size=3, padding=1))
-        layers.add_module('leaky_relu3', nn.LeakyReLU(negative_slope=0.2, inplace=True))
+        layers.add_module('leaky_relu3', nn.LeakyReLU(negative_slope=0.2, inplace=False))
         layers.add_module('conv4', nn.Conv2d(128, 1, kernel_size=3, padding=1))
         self.layers = layers
 
@@ -119,13 +119,13 @@ class conv_2(nn.Module):
 
         layers = nn.Sequential()
         layers.add_module('conv1', nn.Conv2d(512, 256, kernel_size=3, padding=1))
-        layers.add_module('leaky_relu1', nn.LeakyReLU(negative_slope=0.2, inplace=True))
+        layers.add_module('leaky_relu1', nn.LeakyReLU(negative_slope=0.2, inplace=False))
         layers.add_module('conv2', nn.Conv2d(256, 128, kernel_size=3, padding=1, stride=2))
-        layers.add_module('leaky_relu2', nn.LeakyReLU(negative_slope=0.2, inplace=True))
+        layers.add_module('leaky_relu2', nn.LeakyReLU(negative_slope=0.2, inplace=False))
         layers.add_module('conv3', nn.Conv2d(128, 128, kernel_size=3, padding=1, stride=2))
-        layers.add_module('leaky_relu3', nn.LeakyReLU(negative_slope=0.2, inplace=True))
+        layers.add_module('leaky_relu3', nn.LeakyReLU(negative_slope=0.2, inplace=False))
         layers.add_module('conv4', nn.Conv2d(128, 64, kernel_size=3, padding=1, stride=2))
-        layers.add_module('leaky_relu4', nn.LeakyReLU(negative_slope=0.2, inplace=True))
+        layers.add_module('leaky_relu4', nn.LeakyReLU(negative_slope=0.2, inplace=False))
         layers.add_module('conv5', nn.Conv2d(64, 1, kernel_size=3, padding=1))
         self.layers = layers
 

@@ -259,12 +259,16 @@ def load_gt_omega(nusc: NuScenes,
                 # rot 90
                 np_loc = np.array(sample_annotation['translation']).copy()
                 np_loc = np_loc[[1, 0, 2]]
-                np_loc[1] = -np_loc[1]
+                #  np_loc[1] = -np_loc[1]
                 sample_annotation['translation'] = np_loc.tolist()
                 rad = Quaternion(sample_annotation['rotation']).radians
                 rad = (rad + np.pi / 2) % (np.pi * 2)
                 rad_ = Quaternion(axis=[0, 0, 1], radians=rad).elements
+                rad_[0] = rad_[0] * -1
                 sample_annotation['rotation'] = rad_
+                np_size = np.array(sample_annotation['size']).copy()
+                np_size = np_size[[1, 0, 2]]
+                sample_annotation['size'] = np_size.tolist()
                 ########
                 sample_boxes.append(
                     box_cls(

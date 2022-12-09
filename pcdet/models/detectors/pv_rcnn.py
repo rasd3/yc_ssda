@@ -30,7 +30,10 @@ class PVRCNN(Detector3DTemplate):
                 cv2.imwrite('test_%02d.png' % b, det)
             breakpoint()
 
-        for cur_module in self.module_list:
+        batch_dict['domain_target'] = self.only_domain_loss
+        for idx, cur_module in enumerate(self.module_list):
+            if self.only_domain_loss and self.module_topology[idx] == 'pfe':
+                break
             batch_dict = cur_module(batch_dict)
 
         if self.training:

@@ -112,25 +112,29 @@ def train_one_epoch_dann(model, optimizer, train_loader, model_func, lr_schedule
         optimizer.zero_grad()
 
         cur_train_dict['cur_it'] = cur_it
+        cur_train_dict['data_split'] = True
         src_batch['cur_train_meta'] = cur_train_dict
         trg_batch['cur_train_meta'] = cur_train_dict
 
-        model.only_domain_loss = False
+        optimizer.zero_grad()
         src_loss, tb_dict, disp_dict = model_func(model, src_batch)
+        src_loss.backward()
+        clip_grad_norm_(model.parameters(), optim_cfg.GRAD_NORM_CLIP)
+        optimizer.step()
         model.only_domain_loss = True
+
+        optimizer.zero_grad()
         trg_loss, trg_tb_dict, trg_disp_dict = model_func(model, trg_batch)
+        trg_loss.backward()
+        clip_grad_norm_(model.parameters(), optim_cfg.GRAD_NORM_CLIP)
+        optimizer.step()
+        model.only_domain_loss = False
 
         tb_dict['src_domain_cls_loss'] = tb_dict.pop('domain_cls_loss')
         tb_dict['trg_domain_cls_loss'] = trg_tb_dict['domain_cls_loss']
 
-        loss = src_loss + trg_loss
-        loss.backward()
-
-        clip_grad_norm_(model.parameters(), optim_cfg.GRAD_NORM_CLIP)
-        optimizer.step()
-
         accumulated_iter += 1
-        disp_dict.update({'loss': loss.item(), 'lr': cur_lr})
+        disp_dict.update({'loss': src_loss.item() + trg_loss.item(), 'lr': cur_lr})
 
         # log to console and tensorboard
         if rank == 0:
@@ -140,7 +144,7 @@ def train_one_epoch_dann(model, optimizer, train_loader, model_func, lr_schedule
             tbar.refresh()
 
             if tb_log is not None:
-                tb_log.add_scalar('train/loss', loss, accumulated_iter)
+                tb_log.add_scalar('train/loss', src_loss.item() + trg_loss.item(), accumulated_iter)
                 tb_log.add_scalar('meta_data/learning_rate', cur_lr, accumulated_iter)
                 for key, val in tb_dict.items():
                     # print(key, val)

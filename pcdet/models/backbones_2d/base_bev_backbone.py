@@ -102,6 +102,8 @@ class BaseBEVBackbone(nn.Module):
                                                  False)
         self.dc_version = self.model_cfg.get('DC_VERSION', None)
         if self.use_domain_cls:
+            self.domain_data_split = False
+            self.domain_data_trg = False
             self.domain_cls = dc_model_dict[self.dc_version]()
             self.domain_loss_cfg = self.model_cfg.get('LOSS_CONFIG', None)
             if self.domain_loss_cfg.LOSS_DC == 'NLL':
@@ -125,6 +127,8 @@ class BaseBEVBackbone(nn.Module):
             domain_label = torch.FloatTensor(domain_output.shape).cuda()
             domain_label[trg_idx - 1] = 0.
             domain_label[trg_idx] = 1.
+        if self.domain_data_split:
+            domain_label.fill_(self.domain_data_trg)
 
         dc_loss_weight = self.domain_loss_cfg.LOSS_WEIGHTS.dc_weight
         domain_cls_loss = self.domain_cls_loss(domain_output, domain_label)
@@ -190,6 +194,7 @@ class BaseBEVBackbone(nn.Module):
             x = self.deblocks[-1](x)
 
         data_dict['spatial_features_2d'] = x
+        self.domain_data_trg = data_dict.get('domain_target', False)
         if self.use_domain_cls and 'cur_train_meta' in data_dict:
             # from DANN
             iter_meta = data_dict['cur_train_meta']
@@ -202,8 +207,14 @@ class BaseBEVBackbone(nn.Module):
 
             self.forward_ret_dict['domain_output'] = domain_out
             # remove target data
-            self.remove_trg_data(data_dict)
+            if not data_dict['cur_train_meta'].get('data_split', False):
+                self.remove_trg_data(data_dict)
+            else:
+                self.domain_data_split = True
         if not self.use_domain_cls and self.dc_version and 'cur_train_meta' in data_dict:
-            self.remove_trg_data(data_dict)
+            if not data_dict['cur_train_meta'].get('data_split', False):
+                self.remove_trg_data(data_dict)
+            else:
+                self.domain_data_split = True
 
         return data_dict

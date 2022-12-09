@@ -7,7 +7,7 @@ DATA_CONFIG:
     VERSION: 'v0.5-omega-trainval'
     # TARGET: True
     SHIFT_COOR: [0.0, 0.0, -1.8]
-    REPEAT: 1
+    REPEAT: 3
     MAX_SWEEPS: 1
     PRED_VELOCITY: False
     BALANCED_RESAMPLING: True
@@ -226,7 +226,8 @@ MODEL:
         SCORE_THRESH: 0.1
         OUTPUT_RAW_SCORE: False
 
-        EVAL_METRIC: kitti
+        # EVAL_METRIC: kitti
+        EVAL_METRIC: nuscenes
 
         NMS_CONFIG:
             MULTI_CLASSES_NMS: False

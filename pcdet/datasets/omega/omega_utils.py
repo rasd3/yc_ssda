@@ -783,11 +783,12 @@ def lidar_nusc_box_to_global(nusc, boxes, sample_token):
     box_list = []
     for box in boxes:
         # Move box to ego vehicle coord system
-        box.rotate(Quaternion(cs_record['rotation']))
-        box.translate(np.array(cs_record['translation']))
-        # Move box to global coord system
-        box.rotate(Quaternion(pose_record['rotation']))
-        box.translate(np.array(pose_record['translation']))
+        if False:
+            box.rotate(Quaternion(cs_record['rotation']))
+            box.translate(np.array(cs_record['translation']))
+            # Move box to global coord system
+            box.rotate(Quaternion(pose_record['rotation']))
+            box.translate(np.array(pose_record['translation']))
         box_list.append(box)
     return box_list
 
