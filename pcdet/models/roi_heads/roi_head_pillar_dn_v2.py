@@ -52,6 +52,7 @@ class RoIHeadDynamicPillarV2(RoIHeadTemplate_CenterPoint_PointPillar):
             fc_list=self.model_cfg.REG_FC
         )
         self.init_weights(weight_init='xavier')
+        self.batch_size = None
 
     def init_weights(self, weight_init='xavier'):
         if weight_init == 'kaiming':
@@ -179,6 +180,7 @@ class RoIHeadDynamicPillarV2(RoIHeadTemplate_CenterPoint_PointPillar):
         :return:
         """
         batch_dict = self.reorder_first_stage_pred_and_feature(batch_dict)
+        self.batch_size = batch_dict['batch_size']
         # targets_dict = self.proposal_layer(
         #     batch_dict, nms_config=self.model_cfg.NMS_CONFIG['TRAIN' if self.training and not disable_gt_roi_when_pseudo_labeling else 'TEST']
         # )
