@@ -244,6 +244,7 @@ class DADatasetDANN(DADatasetSSDA):
             # SL, TL(for only DANN)
             src_item = self.src_dataset.__getitem__(index)
             trg_item = self.trg_dataset.__getitem__(index)
+            trg_item.pop('gt_boxes')
             return [src_item, trg_item]
         else:
             # whether target or not

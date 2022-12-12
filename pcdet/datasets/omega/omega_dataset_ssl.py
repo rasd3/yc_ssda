@@ -99,6 +99,8 @@ class OmegaDatasetSSL(NuScenesDatasetSSL):
 
         if not self.dataset_cfg.PRED_VELOCITY and 'gt_boxes' in data_dict:
             data_dict['gt_boxes'] = data_dict['gt_boxes'][:, [0, 1, 2, 3, 4, 5, 6, -1]]
+        if not self.dataset_cfg.PRED_VELOCITY and 'gt_boxes_ema' in data_dict:
+            data_dict['gt_boxes_ema'] = data_dict['gt_boxes_ema'][:, [0, 1, 2, 3, 4, 5, 6, -1]]
 
         if self.training:
             index_unlabeled = np.random.choice(len(self.unlabeled_infos), 1)[0]
@@ -132,6 +134,8 @@ class OmegaDatasetSSL(NuScenesDatasetSSL):
 
             if not self.dataset_cfg.PRED_VELOCITY and 'gt_boxes' in unlabeled_data_dict:
                 unlabeled_data_dict['gt_boxes'] = unlabeled_data_dict['gt_boxes'][:, [0, 1, 2, 3, 4, 5, 6, -1]]
+            if not self.dataset_cfg.PRED_VELOCITY and 'gt_boxes_ema' in unlabeled_data_dict:
+                unlabeled_data_dict['gt_boxes_ema'] = unlabeled_data_dict['gt_boxes_ema'][:, [0, 1, 2, 3, 4, 5, 6, -1]]
 
             return [data_dict, unlabeled_data_dict]
         else:

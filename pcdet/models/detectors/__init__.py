@@ -7,6 +7,9 @@ from .pv_rcnn_ssl import PVRCNN_SSL
 from .second_net import SECONDNet
 from .second_net_iou import SECONDNetIoU
 from .centerpoint import CenterPoint
+from .centerpoint_pp_rcnn_v2 import CenterPoint_PointPillar_RCNNV2
+from .centerpoint_pp_rcnn_v2_ssl import CenterPoint_PointPillar_RCNNV2_SSL
+from .centerpoint_dp_ori import CenterPoint_PointPillar_SingleHead
 
 __all__ = {
     'Detector3DTemplate': Detector3DTemplate,
@@ -18,6 +21,9 @@ __all__ = {
     'PointPillar': PointPillar,
     'PointRCNN': PointRCNN,
     'CenterPoint': CenterPoint,
+    'CenterPoint_PointPillar_RCNNV2': CenterPoint_PointPillar_RCNNV2,
+    'CenterPoint_PointPillar_RCNNV2_SSL': CenterPoint_PointPillar_RCNNV2_SSL,
+    'CenterPoint_PointPillar_SingleHead': CenterPoint_PointPillar_SingleHead,
 }
 
 

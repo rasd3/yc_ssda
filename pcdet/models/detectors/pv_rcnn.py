@@ -15,7 +15,6 @@ class PVRCNN(Detector3DTemplate):
             'dense_head', 'point_head', 'roi_head'
         ]
         self.module_list = self.build_networks()
-        self.only_domain_loss = False
 
     def forward(self, batch_dict):
         if False:
@@ -30,14 +29,14 @@ class PVRCNN(Detector3DTemplate):
                 cv2.imwrite('test_%02d.png' % b, det)
             breakpoint()
 
-        batch_dict['domain_target'] = self.only_domain_loss
+        only_domain_loss = batch_dict.get('domain_target', False)
         for idx, cur_module in enumerate(self.module_list):
-            if self.only_domain_loss and self.module_topology[idx] == 'pfe':
+            if only_domain_loss and self.module_topology[idx] == 'pfe':
                 break
             batch_dict = cur_module(batch_dict)
 
         if self.training:
-            loss, tb_dict, disp_dict = self.get_training_loss()
+            loss, tb_dict, disp_dict = self.get_training_loss(only_domain_loss)
 
             ret_dict = {'loss': loss}
             return ret_dict, tb_dict, disp_dict
@@ -60,10 +59,10 @@ class PVRCNN(Detector3DTemplate):
                 breakpoint()
             return pred_dicts, recall_dicts, {}
 
-    def get_training_loss(self):
+    def get_training_loss(self, only_domain_loss=False):
         disp_dict, tb_dict = {}, {}
         loss = torch.tensor(0.).cuda()
-        if not self.only_domain_loss:
+        if not only_domain_loss:
             loss_rpn, tb_dict = self.dense_head.get_loss()
             loss_point, tb_dict = self.point_head.get_loss(tb_dict)
             loss_rcnn, tb_dict = self.roi_head.get_loss(tb_dict)

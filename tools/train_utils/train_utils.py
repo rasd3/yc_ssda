@@ -117,21 +117,24 @@ def train_one_epoch_dann(model, optimizer, train_loader, model_func, lr_schedule
         trg_batch['cur_train_meta'] = cur_train_dict
 
         optimizer.zero_grad()
+        src_batch['domain_target'] = False
         src_loss, tb_dict, disp_dict = model_func(model, src_batch)
         src_loss.backward()
         clip_grad_norm_(model.parameters(), optim_cfg.GRAD_NORM_CLIP)
         optimizer.step()
         model.only_domain_loss = True
 
+        trg_loss = torch.tensor(0.).cuda()
         optimizer.zero_grad()
+        trg_batch['domain_target'] = True
         trg_loss, trg_tb_dict, trg_disp_dict = model_func(model, trg_batch)
         trg_loss.backward()
         clip_grad_norm_(model.parameters(), optim_cfg.GRAD_NORM_CLIP)
         optimizer.step()
+        tb_dict['trg_domain_cls_loss'] = trg_tb_dict['domain_cls_loss']
         model.only_domain_loss = False
 
         tb_dict['src_domain_cls_loss'] = tb_dict.pop('domain_cls_loss')
-        tb_dict['trg_domain_cls_loss'] = trg_tb_dict['domain_cls_loss']
 
         accumulated_iter += 1
         disp_dict.update({'loss': src_loss.item() + trg_loss.item(), 'lr': cur_lr})
