@@ -165,7 +165,7 @@ class ProposalTargetLayer(nn.Module):
             rand_num = np.floor(np.random.rand(self.roi_sampler_cfg.ROI_PER_IMAGE) * fg_num_rois)
             rand_num = torch.from_numpy(rand_num).type_as(max_overlaps).long()
             fg_inds = fg_inds[rand_num]
-            bg_inds = []
+            bg_inds = torch.tensor([], dtype=torch.int64).cuda()
 
         elif bg_num_rois > 0 and fg_num_rois == 0:
             # sampling bg

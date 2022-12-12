@@ -94,7 +94,7 @@ MODEL:
         LOSS_CONFIG:
             LOSS_DC: NLL
             LOSS_WEIGHTS: {
-                'dc_weight': 1.0,
+                'dc_weight': 0.5,
             }
 
         LAYER_NUMS: [3, 5, 5]

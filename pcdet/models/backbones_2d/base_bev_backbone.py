@@ -128,7 +128,7 @@ class BaseBEVBackbone(nn.Module):
             domain_label[trg_idx - 1] = 0.
             domain_label[trg_idx] = 1.
         if self.domain_data_split:
-            domain_label.fill_(self.domain_data_trg)
+            domain_label.fill_(self.forward_ret_dict['domain_target'])
 
         dc_loss_weight = self.domain_loss_cfg.LOSS_WEIGHTS.dc_weight
         domain_cls_loss = self.domain_cls_loss(domain_output, domain_label)
@@ -194,7 +194,6 @@ class BaseBEVBackbone(nn.Module):
             x = self.deblocks[-1](x)
 
         data_dict['spatial_features_2d'] = x
-        self.domain_data_trg = data_dict.get('domain_target', False)
         if self.use_domain_cls and 'cur_train_meta' in data_dict:
             # from DANN
             iter_meta = data_dict['cur_train_meta']
@@ -206,6 +205,7 @@ class BaseBEVBackbone(nn.Module):
             domain_out = self.domain_cls(x, alpha)
 
             self.forward_ret_dict['domain_output'] = domain_out
+            self.forward_ret_dict['domain_target'] = data_dict['domain_target']
             # remove target data
             if not data_dict['cur_train_meta'].get('data_split', False):
                 self.remove_trg_data(data_dict)

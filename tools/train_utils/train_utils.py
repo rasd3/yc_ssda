@@ -109,7 +109,6 @@ def train_one_epoch_dann(model, optimizer, train_loader, model_func, lr_schedule
             tb_log.add_scalar('meta_data/learning_rate', cur_lr, accumulated_iter)
 
         model.train()
-        optimizer.zero_grad()
 
         cur_train_dict['cur_it'] = cur_it
         cur_train_dict['data_split'] = True
@@ -122,7 +121,6 @@ def train_one_epoch_dann(model, optimizer, train_loader, model_func, lr_schedule
         src_loss.backward()
         clip_grad_norm_(model.parameters(), optim_cfg.GRAD_NORM_CLIP)
         optimizer.step()
-        model.only_domain_loss = True
 
         trg_loss = torch.tensor(0.).cuda()
         optimizer.zero_grad()
@@ -131,9 +129,8 @@ def train_one_epoch_dann(model, optimizer, train_loader, model_func, lr_schedule
         trg_loss.backward()
         clip_grad_norm_(model.parameters(), optim_cfg.GRAD_NORM_CLIP)
         optimizer.step()
-        tb_dict['trg_domain_cls_loss'] = trg_tb_dict['domain_cls_loss']
-        model.only_domain_loss = False
 
+        tb_dict['trg_domain_cls_loss'] = trg_tb_dict['domain_cls_loss']
         tb_dict['src_domain_cls_loss'] = tb_dict.pop('domain_cls_loss')
 
         accumulated_iter += 1
