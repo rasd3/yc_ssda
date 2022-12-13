@@ -314,6 +314,10 @@ class CenterPoint_PointPillar_RCNNV2_SSL(Detector3DTemplateV2):
                     batch_dict['roi_scores'] = roi_scores
                     batch_dict['roi_labels'] = roi_labels
                     batch_dict['has_class_labels'] = True
+                    batch_dict['rois_onestage'] = rois
+                    batch_dict['roi_scores_onestage'] = roi_scores
+                    batch_dict['roi_labels_onestage'] = roi_labels
+                    batch_dict['has_class_labels_onestage'] = True
                 batch_dict = cur_module(batch_dict)
 
             pred_dicts = self.post_process(batch_dict) #test 1025
@@ -321,7 +325,8 @@ class CenterPoint_PointPillar_RCNNV2_SSL(Detector3DTemplateV2):
             batch_dict['rois'] = rois
             batch_dict['roi_labels'] = roi_labels
             batch_dict['has_class_labels'] = True
-            pred_dicts, recall_dicts = self.post_processing_for_roi__(batch_dict)
+            #  pred_dicts, recall_dicts = self.post_processing_for_roi__(batch_dict)
+            pred_dicts, recall_dicts = self.post_processing_for_roi_onestage(batch_dict) # one - stage result
 
             return pred_dicts, recall_dicts, {}
 

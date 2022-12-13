@@ -330,6 +330,25 @@ class Detector3DTemplateV2(nn.Module):
 
         return pred_dicts, recall_dict  
     
+    def post_processing_for_roi_onestage(self, batch_dict):
+        post_process_cfg = self.model_cfg.POST_PROCESSING
+        batch_size = batch_dict['batch_size']
+        #final_pred_dict = batch_dict['final_box_dicts']
+        final_pred_dict = [{'pred_boxes':batch_dict["rois_onestage"][i], 'pred_scores':batch_dict['roi_scores_onestage'][i], 'pred_labels':batch_dict['roi_labels_onestage'][i]} for i in range(batch_size)]
+        #final_pred_dict = batch_dict['rois']
+        recall_dict = {}
+        for index in range(batch_size):
+            pred_boxes = final_pred_dict[index]['pred_boxes']
+            #pred_boxes = final_pred_dict[index]
+
+            recall_dict = self.generate_recall_record(
+                box_preds=pred_boxes,
+                recall_dict=recall_dict, batch_index=index, data_dict=batch_dict,
+                thresh_list=post_process_cfg.RECALL_THRESH_LIST
+            )
+
+        return final_pred_dict, recall_dict
+
     def post_processing_for_refine(self, batch_dict, no_recall_dict=True, override_thresh=None, no_nms=False):
         """
         Args:

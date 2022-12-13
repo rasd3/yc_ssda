@@ -4,6 +4,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from ...utils import box_coder_utils, common_utils, loss_utils
+from ...ops.roiaware_pool3d import roiaware_pool3d_utils
 from ..model_utils.model_nms_utils import class_agnostic_nms
 from .target_assigner.proposal_target_layer import ProposalTargetLayer
 
@@ -20,6 +21,10 @@ class RoIHeadTemplate(nn.Module):
         self.build_losses(self.model_cfg.LOSS_CONFIG)
         self.forward_ret_dict = None
         self.predict_boxes_when_training = predict_boxes_when_training
+
+        # Domain Local Alignment
+        self.use_domain_alignment = self.model_cfg.get('USE_DOMAIN_ALIGNMENT', False)
+        self.box_per_sample = self.model_cfg.get('BOX_PER_SAMPLE', None)
 
     def build_losses(self, losses_cfg):
         self.add_module(
@@ -305,3 +310,17 @@ class RoIHeadTemplate(nn.Module):
         batch_box_preds[:, 0:3] += roi_xyz
         batch_box_preds = batch_box_preds.view(batch_size, -1, code_size)
         return batch_cls_preds, batch_box_preds
+
+    def get_dla_feature(self, batch_dict):
+        box_preds, cls_preds = batch_dict['batch_box_preds'], batch_dict['batch_cls_preds']
+        breakpoint()
+        for b, (box_pred, cls_pred) in enumerate(zip(box_preds, cls_preds)):
+            # filter top K box according to cls_preds
+            srt, idx = torch.sort(cls_pred, 0, descending=True)
+            idx = idx[:, 0]
+            box_pred = box_pred[idx][:self.box_per_sample]
+            cls_pred = cls_pred[idx][:self.box_per_sample]
+
+            mask = batch_dict['points'][:, 0] == b
+            points = batch_dict['points'][mask][:, 1:]
+            box_idxs_of_pts = roiaware_pool3d_utils.points_in_boxes_gpu(points, box_pred)
