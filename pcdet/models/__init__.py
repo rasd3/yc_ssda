@@ -24,10 +24,15 @@ def load_data_to_gpu(batch_dict):
 
 def model_fn_decorator():
     ModelReturn = namedtuple('ModelReturn', ['loss', 'tb_dict', 'disp_dict'])
+    ModelReturnDLA = namedtuple('ModelReturnDLA', ['loss', 'tb_dict', 'disp_dict', 'dla_feat'])
 
     def model_func(model, batch_dict):
         load_data_to_gpu(batch_dict)
-        ret_dict, tb_dict, disp_dict = model(batch_dict)
+        use_local_alignment = model.use_local_alignment
+        if use_local_alignment:
+            ret_dict, tb_dict, disp_dict, dla_feat = model(batch_dict)
+        else:
+            ret_dict, tb_dict, disp_dict = model(batch_dict)
 
         loss = ret_dict['loss'].mean()
         if hasattr(model, 'update_global_step'):
@@ -35,6 +40,9 @@ def model_fn_decorator():
         else:
             model.module.update_global_step()
 
-        return ModelReturn(loss, tb_dict, disp_dict)
+        if use_local_alignment:
+            return ModelReturnDLA(loss, tb_dict, disp_dict, dla_feat)
+        else:
+            return ModelReturn(loss, tb_dict, disp_dict)
 
     return model_func

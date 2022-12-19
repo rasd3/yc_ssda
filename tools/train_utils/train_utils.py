@@ -6,6 +6,7 @@ import tqdm
 from torch.nn.utils import clip_grad_norm_
 
 from pcdet.models.model_utils.dsnorm import set_ds_target
+from pcdet.models.model_utils import mmd
 
 def train_one_epoch(model, optimizer, train_loader, model_func, lr_scheduler, accumulated_iter, optim_cfg,
                     rank, tbar, total_it_each_epoch, dataloader_iter, tb_log=None, leave_pbar=False,
@@ -109,6 +110,7 @@ def train_one_epoch_dann(model, optimizer, train_loader, model_func, lr_schedule
             tb_log.add_scalar('meta_data/learning_rate', cur_lr, accumulated_iter)
 
         model.train()
+        use_local_alignment = model.use_local_alignment
 
         cur_train_dict['cur_it'] = cur_it
         cur_train_dict['data_split'] = True
@@ -117,7 +119,10 @@ def train_one_epoch_dann(model, optimizer, train_loader, model_func, lr_schedule
 
         optimizer.zero_grad()
         src_batch['domain_target'] = False
-        src_loss, tb_dict, disp_dict = model_func(model, src_batch)
+        if use_local_alignment:
+            src_loss, tb_dict, disp_dict, s_dla_feat = model_func(model, src_batch)
+        else:
+            src_loss, tb_dict, disp_dict = model_func(model, src_batch)
         src_loss.backward()
         clip_grad_norm_(model.parameters(), optim_cfg.GRAD_NORM_CLIP)
         optimizer.step()
@@ -125,10 +130,25 @@ def train_one_epoch_dann(model, optimizer, train_loader, model_func, lr_schedule
         trg_loss = torch.tensor(0.).cuda()
         optimizer.zero_grad()
         trg_batch['domain_target'] = True
-        trg_loss, trg_tb_dict, trg_disp_dict = model_func(model, trg_batch)
-        trg_loss.backward()
-        clip_grad_norm_(model.parameters(), optim_cfg.GRAD_NORM_CLIP)
-        optimizer.step()
+        if use_local_alignment:
+            trg_loss, trg_tb_dict, trg_disp_dict, t_dla_feat = model_func(model, trg_batch)
+        else:
+            trg_loss, trg_tb_dict, trg_disp_dict = model_func(model, trg_batch)
+
+        if use_local_alignment:
+            breakpoint()
+            sigma_list = [0.01, 0.1, 1, 10, 100]
+            B, K, C = s_dla_feat.shape
+            loss_node_adv = 1 * mmd.mix_rbf_mmd2(s_dla_feat.reshape(-1, C),
+                                                 t_dla_feat.reshape(-1, C),
+                                                 sigma_list)
+            trg_loss = trg_loss + loss_node_adv
+
+        if trg_loss.to(torch.int) != 0:
+            trg_loss.backward()
+            clip_grad_norm_(model.parameters(), optim_cfg.GRAD_NORM_CLIP)
+            optimizer.step()
+
 
         tb_dict['trg_domain_cls_loss'] = trg_tb_dict['domain_cls_loss']
         tb_dict['src_domain_cls_loss'] = tb_dict.pop('domain_cls_loss')

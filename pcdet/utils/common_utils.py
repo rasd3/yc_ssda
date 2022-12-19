@@ -197,3 +197,18 @@ def merge_results_dist(result_part, size, tmpdir):
     ordered_results = ordered_results[:size]
     shutil.rmtree(tmpdir)
     return ordered_results
+
+def sample_points(points, method='rand', n_points=256):
+    if n_points < len(points):
+        idxs = np.arange(len(points))
+        choice = np.random.choice(idxs, n_points, replace=False)
+    else:
+        choice = np.arange(0, len(points), dtype=np.int32)
+        choice = np.tile(choice, n_points // len(points))
+        extra_choice = np.random.choice(choice, n_points % len(points), replace=False)
+        choice = np.concatenate((choice, extra_choice), axis=0)
+    np.random.shuffle(choice)
+    choice = torch.tensor(choice, device=points.device, dtype=torch.int64)
+    points = points[choice]
+
+    return points
