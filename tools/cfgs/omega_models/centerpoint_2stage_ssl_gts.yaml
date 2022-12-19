@@ -19,11 +19,11 @@ DATA_CONFIG:
     POINT_CLOUD_RANGE: [-51.2, -51.2, -5.0, 51.2, 51.2, 3.0]
 
     DATA_AUGMENTOR:
-        DISABLE_AUG_LIST: ['placeholder', 'gt_sampling']
+        DISABLE_AUG_LIST: ['placeholder']
         AUG_CONFIG_LIST:
             - NAME: gt_sampling
               DB_INFO_PATH:
-                - omega_dbinfos_1sweeps_train_0.10_2.pkl
+                - omega_dbinfos_1sweeps_train_0.05_1.pkl
               PREPARE: {
                 filter_by_min_points: [
                     'car:20','truck:20', 'bus:20',

@@ -7,6 +7,7 @@ from pcdet.datasets.augmentor.augmentor_utils import *
 from pcdet.ops.iou3d_nms import iou3d_nms_utils
 from .detector3d_template_v2 import Detector3DTemplateV2
 from .centerpoint_pp_rcnn_v2 import CenterPoint_PointPillar_RCNNV2
+from pcdet.utils.simplevis import nuscene_vis
 
 
 class CenterPoint_PointPillar_RCNNV2_SSL(Detector3DTemplateV2):
@@ -32,6 +33,17 @@ class CenterPoint_PointPillar_RCNNV2_SSL(Detector3DTemplateV2):
         self.supervise_mode = model_cfg.SUPERVISE_MODE
 
     def forward(self, batch_dict):
+        if False:
+            import cv2
+            b_size = batch_dict['gt_boxes'].shape[0]
+            for b in range(b_size):
+                points = batch_dict['points'][batch_dict['points'][:, 0] ==
+                                              b][:, 1:4].cpu().numpy()
+                gt_boxes = batch_dict['gt_boxes'][b].cpu().numpy().copy()
+                gt_boxes[:, 6] = -gt_boxes[:, 6]
+                det = nuscene_vis(points, gt_boxes)
+                cv2.imwrite('test_%02d.png' % b, det)
+            breakpoint()
         if self.training:
             mask = batch_dict['mask'].view(-1)
 
@@ -243,6 +255,18 @@ class CenterPoint_PointPillar_RCNNV2_SSL(Detector3DTemplateV2):
                         pseudo_accs.append(ones)
                         pseudo_fgs.append(ones)
 
+            if False:
+                import cv2
+                print('max_pseudo_box_num: %d' % max_pseudo_box_num)
+                b_size = batch_dict['gt_boxes'].shape[0]
+                for b in range(b_size):
+                    points = batch_dict['points'][batch_dict['points'][:, 0] ==
+                                                  b][:, 1:4].cpu().numpy()
+                    gt_boxes = batch_dict['gt_boxes'][b].cpu().numpy().copy()
+                    gt_boxes[:, 6] = -gt_boxes[:, 6]
+                    det = nuscene_vis(points, gt_boxes)
+                    cv2.imwrite('test_%02d.png' % b, det)
+                breakpoint()
             for cur_module in self.centerpoint_rcnn.module_list:
                 if str(cur_module) == "BEVFeatureExtractorV2()" or str(cur_module) == "PVRCNNHead()":
                         pred_dicts, _ = self.post_processing_for_refine(batch_dict)

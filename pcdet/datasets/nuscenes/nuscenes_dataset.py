@@ -186,6 +186,7 @@ class NuScenesDataset(DatasetTemplate):
 
             if self.shift_coor:
                 info['gt_boxes'][:, :3] += self.shift_coor
+                input_dict['shift_coor'] = self.shift_coor
                 
             input_dict.update({
                 'gt_names':

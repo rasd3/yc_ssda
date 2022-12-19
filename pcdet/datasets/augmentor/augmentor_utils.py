@@ -95,6 +95,7 @@ def random_translation_along_z(gt_boxes, points, offset_std):
     gt_boxes[:, 2] += offset
 
     return gt_boxes, points
+
 def global_rotation(gt_boxes, points, rot_range, rot_angle_=None):
     """
     Args:
@@ -285,6 +286,8 @@ def normalize_object_size(boxes, points, boxes_mask, size_reses, gt_names, class
     for k in range(boxes.shape[0]):
         # skip boxes that not need to normalize
         if boxes_mask[k] == 0:
+            continue
+        if not gt_names[k] in class_names:
             continue
         cls_idx = class_names.index(gt_names[k])
         size_res = size_reses[cls_idx]

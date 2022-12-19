@@ -13,7 +13,12 @@ SRC_DATASET:
                   'barrier', 'motorcycle', 'bicycle', 'pedestrian', 'traffic_cone']
     MAX_SWEEPS: 10
     PRED_VELOCITY: False
-    BALANCED_RESAMPLING: True
+    BALANCED_RESAMPLING: False
+    POINT_FEATURE_ENCODING: {
+        encoding_type: absolute_coordinates_encoding,
+        used_feature_list: ['x', 'y', 'z'],
+        src_feature_list: ['x', 'y', 'z', 'intensity', 'timestamp'],
+    }
     DATA_AUGMENTOR:
         DISABLE_AUG_LIST: ['placeholder', 'gt_sampling']
     INFO_PATH: {
@@ -31,7 +36,12 @@ TRG_DATASET:
     VERSION: 'v0.5-omega-trainval'
     MAX_SWEEPS: 1
     PRED_VELOCITY: False
-    BALANCED_RESAMPLING: True
+    BALANCED_RESAMPLING: False
+    POINT_FEATURE_ENCODING: {
+        encoding_type: absolute_coordinates_encoding,
+        used_feature_list: ['x', 'y', 'z'],
+        src_feature_list: ['x', 'y', 'z', 'intensity', 'timestamp'],
+    }
     INFO_PATH: {
         'train': [omega_infos_1sweeps_train_train_0.10_2.pkl, omega_infos_1sweeps_unlabeled_train_0.10_2.pkl],
         'test': [omega_infos_1sweeps_val_train_0.10_2.pkl],

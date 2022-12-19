@@ -54,6 +54,7 @@ class PVRCNN_SSL(Detector3DTemplate):
                 gt_boxes[:, 6] = -gt_boxes[:, 6]
                 det = nuscene_vis(points, gt_boxes)
                 cv2.imwrite('test_%02d.png' % b, det)
+            breakpoint()
 
         if self.training:
             mask = batch_dict['mask'].view(-1)

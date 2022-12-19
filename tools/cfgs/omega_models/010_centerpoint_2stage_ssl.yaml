@@ -13,8 +13,8 @@ DATA_CONFIG:
     BALANCED_RESAMPLING: True #False
 
     INFO_PATH: {
-        'train': [omega_infos_1sweeps_train_train_0.05_1.pkl, omega_infos_1sweeps_unlabeled_train_0.05_1.pkl],
-        'test': [omega_infos_1sweeps_val_train_0.05_1.pkl], #[omega_infos_1sweeps_train_train_test.pkl],
+        'train': [omega_infos_1sweeps_train_train_0.10_2.pkl, omega_infos_1sweeps_unlabeled_train_0.10_2.pkl],
+        'test': [omega_infos_1sweeps_val_train_0.10_2.pkl], #[omega_infos_1sweeps_train_train_test.pkl],
     }
     POINT_CLOUD_RANGE: [-51.2, -51.2, -5.0, 51.2, 51.2, 3.0]
 

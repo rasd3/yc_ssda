@@ -187,6 +187,7 @@ class NuScenesDatasetSSL(DatasetTemplate):
 
             if self.shift_coor:
                 info['gt_boxes'][:, :3] += self.shift_coor
+                input_dict['shift_coor'] = self.shift_coor
             input_dict.update({
                 'gt_names':
                 info['gt_names'] if mask is None else info['gt_names'][mask],

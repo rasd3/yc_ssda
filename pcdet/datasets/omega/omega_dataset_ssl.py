@@ -70,6 +70,7 @@ class OmegaDatasetSSL(NuScenesDatasetSSL):
 
             if self.shift_coor:
                 info['gt_boxes'][:, :3] += self.shift_coor
+                input_dict['shift_coor'] = self.shift_coor
             input_dict.update({
                 'gt_names': info['gt_names'] if mask is None else info['gt_names'][mask],
                 'gt_boxes': info['gt_boxes'] if mask is None else info['gt_boxes'][mask]
@@ -148,12 +149,10 @@ class OmegaDatasetSSL(NuScenesDatasetSSL):
             for cur_sample in batch_list:
                 for key, val in cur_sample[0].items():
                     data_dict[key].append(val)
-                #  data_dict['mask'].append(np.ones([int(len(batch_list)/2)]))
-                data_dict['mask'].append(np.ones([len(batch_list)]))
                 for key, val in cur_sample[1].items():
                     data_dict[key].append(val)
-                #  data_dict['mask'].append(np.zeros([int(len(batch_list)/2)]))
-                data_dict['mask'].append(np.zeros([len(batch_list)]))
+            data_dict['mask'].append(np.ones([len(batch_list)]))
+            data_dict['mask'].append(np.zeros([len(batch_list)]))
             batch_size = len(batch_list) * 2
         else:
             for cur_sample in batch_list:

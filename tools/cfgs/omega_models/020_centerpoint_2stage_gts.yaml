@@ -2,28 +2,27 @@ CLASS_NAMES: ['car', 'truck', 'bus',
               'motorcycle', 'pedestrian']
 
 DATA_CONFIG:
-    _BASE_CONFIG_: cfgs/dataset_configs/omega_dataset_ssl.yaml
+    _BASE_CONFIG_: cfgs/dataset_configs/omega_dataset.yaml
     DATA_PATH: '../data/omega'
     VERSION: 'v0.5-omega-trainval'
     SHIFT_COOR: [0.0, 0.0, -1.8]
-    U_SHIFT_COOR: True
     MAX_SWEEPS: 1
-    REPEAT: 5
+    REPEAT: 3
     PRED_VELOCITY: False
     BALANCED_RESAMPLING: True #False
 
     INFO_PATH: {
-        'train': [omega_infos_1sweeps_train_train_0.05_1.pkl, omega_infos_1sweeps_unlabeled_train_0.05_1.pkl],
-        'test': [omega_infos_1sweeps_val_train_0.05_1.pkl], #[omega_infos_1sweeps_train_train_test.pkl],
+        'train': [omega_infos_1sweeps_train_train_0.20_1.pkl],
+        'test': [omega_infos_1sweeps_val_train_0.20_1.pkl],
     }
     POINT_CLOUD_RANGE: [-51.2, -51.2, -5.0, 51.2, 51.2, 3.0]
 
     DATA_AUGMENTOR:
-        DISABLE_AUG_LIST: ['placeholder', 'gt_sampling']
+        DISABLE_AUG_LIST: ['placeholder']
         AUG_CONFIG_LIST:
             - NAME: gt_sampling
               DB_INFO_PATH:
-                - omega_dbinfos_1sweeps_train_0.10_2.pkl
+                - omega_dbinfos_1sweeps_train_0.20_1.pkl
               PREPARE: {
                 filter_by_min_points: [
                     'car:20','truck:20', 'bus:20',
@@ -32,8 +31,8 @@ DATA_CONFIG:
               }
 
               SAMPLE_GROUPS: [
-                'car:10','truck:10', 'bus:7', 
-                'motorcycle:7', 'pedestrian:7',
+                'car:2','truck:3', 'bus:4',
+                'motorcycle:6', 'pedestrian:2',
               ]
 
               NUM_POINT_FEATURES: 5
@@ -55,8 +54,8 @@ DATA_CONFIG:
               ALONG_AXIS_LIST: ['x', 'y', 'z']
 
     DATA_PROCESSOR:
-        - NAME: mask_points_and_boxes_outside_range
-          REMOVE_OUTSIDE_BOXES: True
+        -   NAME: mask_points_and_boxes_outside_range
+            REMOVE_OUTSIDE_BOXES: True
 
         - NAME: shuffle_points
           SHUFFLE_ENABLED: {
@@ -64,21 +63,14 @@ DATA_CONFIG:
             'test': False
           }
 
-        - NAME: transform_points_to_voxels
-          VOXEL_SIZE: [0.2, 0.2, 8.0]
-          MAX_POINTS_PER_VOXEL: 20
-          MAX_NUMBER_OF_VOXELS: {
-            'train': 30000,
-            'test': 30000
-          }
-        # - NAME: transform_points_to_voxels_placeholder
+        - NAME: transform_points_to_voxels_placeholder
           # VOXEL_SIZE: [0.32, 0.32, 6.0] #[0.2, 0.2, 8.0]
-          # VOXEL_SIZE: [0.2, 0.2, 8.0]
+          VOXEL_SIZE: [0.2, 0.2, 8.0] #nuscenes
           
 
 
 MODEL:
-    NAME: CenterPoint_PointPillar_RCNNV2_SSL #CenterPointRCNN # CenterPoint_PointPillar_RCNN  #PillarNet
+    NAME: CenterPoint_PointPillar_RCNNV2 #CenterPointRCNN # CenterPoint_PointPillar_RCNN  #PillarNet
     
     VFE:
         NAME: DynPillarVFE
@@ -104,15 +96,15 @@ MODEL:
         CLASS_AGNOSTIC: False
 
         #VOXEL_SIZE: [0.05, 0.05, 0.1]
-        #VOXEL_SIZE: [0.32, 0.32, 6.0]
-        VOXEL_SIZE: [0.2, 0.2, 8.0]
+        # VOXEL_SIZE: [0.32, 0.32, 6.0]
+        VOXEL_SIZE: [0.2, 0.2, 8.0] #nuscenes
         USE_DIRECTION_CLASSIFIER: False 
 
         TARGET_ASSIGNER_CONFIG:
-            MAX_OBJS: 100
+            MAX_OBJS: 500
             #VOXEL_SIZE: [0.05, 0.05, 0.1] #kitti
-            #VOXEL_SIZE: [0.32, 0.32, 6.0]
-            VOXEL_SIZE: [0.2, 0.2, 8.0]
+            # VOXEL_SIZE: [0.32, 0.32, 6.0]
+            VOXEL_SIZE: [0.2, 0.2, 8.0] #nuscenes
             OUT_SIZE_FACTOR: 2 #4 
             GAUSSIAN_OVERLAP: 0.1
             MIN_RADIUS: 2
@@ -128,8 +120,8 @@ MODEL:
     Second_Stage:
         NAME: BEVFeatureExtractorV2
         PC_START: [-51.2, -51.2]
-        #VOXEL_SIZE: [0.32, 0.32] #[0.075, 0.075, 0.2]
-        VOXEL_SIZE: [0.2, 0.2]
+        # VOXEL_SIZE: [0.32, 0.32] #[0.075, 0.075, 0.2]
+        VOXEL_SIZE: [0.2, 0.2] #nuscenes
         OUT_STRIDE: 1
         NUM_POINT : 5
 
@@ -143,12 +135,20 @@ MODEL:
         IOU_FC: [256, 256]
         DP_RATIO: 0.3
 
-        # ROI_GRID_POOL:
-        #     GRID_SIZE: 6
-        #     MLPS: [[64, 64], [64, 64]]
-        #     POOL_RADIUS: [0.8, 1.6]
-        #     NSAMPLE: [16, 16]
-        #     POOL_METHOD: max_pool
+        ROI_GRID_POOL:
+            GRID_SIZE: 6
+            MLPS: [[64, 64], [64, 64]]
+            POOL_RADIUS: [0.8, 1.6]
+            NSAMPLE: [16, 16]
+            POOL_METHOD: max_pool
+        
+        NMS_CONFIG:
+            TRAIN:
+                NMS_TYPE: nms_gpu
+                MULTI_CLASSES_NMS: False
+                NMS_PRE_MAXSIZE: 9000
+                NMS_POST_MAXSIZE: 512
+                NMS_THRESH: 0.8
 
         TARGET_CONFIG:
             BOX_CODER: ResidualCoder
@@ -176,6 +176,9 @@ MODEL:
                 'code_weights': [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
             }
 
+    
+
+    
     POST_PROCESSING:
         RECALL_THRESH_LIST: [0.3, 0.5, 0.7]
         SCORE_THRESH: 0.1
@@ -190,25 +193,17 @@ MODEL:
             NMS_PRE_MAXSIZE: 1000
             NMS_POST_MAXSIZE: 83
         
-        # SSL_NMS_CONFIG:
-        #     MULTI_CLASSES_NMS: False
-        #     NMS_TYPE: nms_gpu
-        #     NMS_THRESH: 0.2
-        #     NMS_PRE_MAXSIZE: 1000
-        #     NMS_POST_MAXSIZE: 83
-    
-    THRESH: [0.5, 0.4, 0.5, 0.4, 0.5]
-    UNLABELED_SUPERVISE_CLS: True
-    UNLABELED_SUPERVISE_REFINE: True
-    UNLABELED_WEIGHT: 1.0
-    SEM_THRESH: [0.1, 0.0, 0.0, 0.0, 0.0]
-    SUPERVISE_MODE: 0
-    NO_NMS: False
+        SSL_NMS_CONFIG:
+            MULTI_CLASSES_NMS: False
+            NMS_TYPE: nms_gpu
+            NMS_THRESH: 0.2
+            NMS_PRE_MAXSIZE: 1000
+            NMS_POST_MAXSIZE: 83
 
 
 OPTIMIZATION:
-    BATCH_SIZE_PER_GPU: 1 #sever : 10
-    EVAL_BATCH_SIZE_PER_GPU: 8 #sever : 10
+    BATCH_SIZE_PER_GPU: 8 #sever : 10 #conv 8
+    EVAL_BATCH_SIZE_PER_GPU: 8 #sever : 10 #conv 8
     NUM_EPOCHS: 60
 
     OPTIMIZER: adam_onecycle
