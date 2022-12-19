@@ -123,7 +123,7 @@ class PVRCNN(Detector3DTemplate):
 
             mask = batch_dict['points'][:, 0] == b
             points = batch_dict['points'][mask][:, 1:4]
-            if True:
+            if False:
                 pred_boxess = pred_boxes.detach().cpu().numpy()
                 pred_boxess[:, 6] = -pred_boxess[:, 6].copy()
                 map1 = nuscene_vis(points.cpu().numpy(),

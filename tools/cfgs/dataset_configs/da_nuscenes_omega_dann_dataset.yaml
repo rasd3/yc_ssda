@@ -12,6 +12,11 @@ SRC_DATASET:
     MAX_SWEEPS: 10
     PRED_VELOCITY: False
     BALANCED_RESAMPLING: True
+    POINT_FEATURE_ENCODING: {
+        encoding_type: absolute_coordinates_encoding,
+        used_feature_list: ['x', 'y', 'z'],
+        src_feature_list: ['x', 'y', 'z', 'intensity', 'timestamp'],
+    }
     INFO_PATH: {
         'train': [nuscenes_infos_10sweeps_train_train_0.50_1.pkl],
         'test': [nuscenes_infos_10sweeps_val.pkl],
@@ -25,6 +30,11 @@ TRG_DATASET:
     MAX_SWEEPS: 1
     PRED_VELOCITY: False
     BALANCED_RESAMPLING: True
+    POINT_FEATURE_ENCODING: {
+        encoding_type: absolute_coordinates_encoding,
+        used_feature_list: ['x', 'y', 'z'],
+        src_feature_list: ['x', 'y', 'z', 'intensity', 'timestamp'],
+    }
     INFO_PATH: {
         'train': [omega_infos_1sweeps_train.pkl],
         'test': [omega_infos_1sweeps_val.pkl],

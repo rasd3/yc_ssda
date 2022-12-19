@@ -128,7 +128,6 @@ def train_one_epoch_dann(model, optimizer, train_loader, model_func, lr_schedule
         optimizer.step()
 
         trg_loss = torch.tensor(0.).cuda()
-        optimizer.zero_grad()
         trg_batch['domain_target'] = True
         if use_local_alignment:
             trg_loss, trg_tb_dict, trg_disp_dict, t_dla_feat = model_func(model, trg_batch)
@@ -136,22 +135,23 @@ def train_one_epoch_dann(model, optimizer, train_loader, model_func, lr_schedule
             trg_loss, trg_tb_dict, trg_disp_dict = model_func(model, trg_batch)
 
         if use_local_alignment:
-            breakpoint()
             sigma_list = [0.01, 0.1, 1, 10, 100]
             B, K, C = s_dla_feat.shape
             loss_node_adv = 1 * mmd.mix_rbf_mmd2(s_dla_feat.reshape(-1, C),
                                                  t_dla_feat.reshape(-1, C),
                                                  sigma_list)
             trg_loss = trg_loss + loss_node_adv
+            tb_dict['domain_align_loss'] = loss_node_adv.item()
 
         if trg_loss.to(torch.int) != 0:
+            optimizer.zero_grad()
             trg_loss.backward()
             clip_grad_norm_(model.parameters(), optim_cfg.GRAD_NORM_CLIP)
             optimizer.step()
 
-
-        tb_dict['trg_domain_cls_loss'] = trg_tb_dict['domain_cls_loss']
-        tb_dict['src_domain_cls_loss'] = tb_dict.pop('domain_cls_loss')
+            if 'domain_cls_loss' in trg_tb_dict:
+                tb_dict['trg_domain_cls_loss'] = trg_tb_dict['domain_cls_loss']
+                tb_dict['src_domain_cls_loss'] = tb_dict.pop('domain_cls_loss')
 
         accumulated_iter += 1
         disp_dict.update({'loss': src_loss.item() + trg_loss.item(), 'lr': cur_lr})
