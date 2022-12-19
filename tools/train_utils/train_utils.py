@@ -91,6 +91,7 @@ def train_one_epoch_dann(model, optimizer, train_loader, model_func, lr_schedule
         'total_it_each_epoch': total_it_each_epoch,
     }
 
+    use_local_alignment = model.use_local_alignment
     for cur_it in range(total_it_each_epoch):
         try:
             src_batch, trg_batch = next(dataloader_iter)
@@ -110,7 +111,7 @@ def train_one_epoch_dann(model, optimizer, train_loader, model_func, lr_schedule
             tb_log.add_scalar('meta_data/learning_rate', cur_lr, accumulated_iter)
 
         model.train()
-        use_local_alignment = model.use_local_alignment
+        model.use_local_alignment = False
 
         cur_train_dict['cur_it'] = cur_it
         cur_train_dict['data_split'] = True
@@ -119,42 +120,42 @@ def train_one_epoch_dann(model, optimizer, train_loader, model_func, lr_schedule
 
         optimizer.zero_grad()
         src_batch['domain_target'] = False
-        if use_local_alignment:
-            src_loss, tb_dict, disp_dict, s_dla_feat = model_func(model, src_batch)
-        else:
-            src_loss, tb_dict, disp_dict = model_func(model, src_batch)
+        src_loss, tb_dict, disp_dict = model_func(model, src_batch)
         src_loss.backward()
         clip_grad_norm_(model.parameters(), optim_cfg.GRAD_NORM_CLIP)
         optimizer.step()
 
-        trg_loss = torch.tensor(0.).cuda()
         trg_batch['domain_target'] = True
-        if use_local_alignment:
-            trg_loss, trg_tb_dict, trg_disp_dict, t_dla_feat = model_func(model, trg_batch)
-        else:
-            trg_loss, trg_tb_dict, trg_disp_dict = model_func(model, trg_batch)
+        trg_d_loss = torch.tensor(0.).cuda()
+        if model.backbone_2d.use_domain_cls:
+            optimizer.zero_grad()
+            trg_d_loss, trg_tb_dict, trg_disp_dict = model_func(model, trg_batch)
+            trg_d_loss.backward()
+            clip_grad_norm_(model.parameters(), optim_cfg.GRAD_NORM_CLIP)
+            optimizer.step()
+            if 'domain_cls_loss' in trg_tb_dict:
+                tb_dict['trg_domain_cls_loss'] = trg_tb_dict['domain_cls_loss']
+                tb_dict['src_domain_cls_loss'] = tb_dict.pop('domain_cls_loss')
 
+        loss_node_adv = torch.tensor(0.).cuda()
         if use_local_alignment:
+            model.use_local_alignment = True
+            optimizer.zero_grad()
+            _, tb_dict, disp_dict, s_dla_feat = model_func(model, src_batch)
+            _, trg_tb_dict, trg_disp_dict, t_dla_feat = model_func(model, trg_batch)
             sigma_list = [0.01, 0.1, 1, 10, 100]
             B, K, C = s_dla_feat.shape
             loss_node_adv = 1 * mmd.mix_rbf_mmd2(s_dla_feat.reshape(-1, C),
                                                  t_dla_feat.reshape(-1, C),
                                                  sigma_list)
-            trg_loss = trg_loss + loss_node_adv
-            tb_dict['domain_align_loss'] = loss_node_adv.item()
-
-        if trg_loss.to(torch.int) != 0:
-            optimizer.zero_grad()
-            trg_loss.backward()
+            loss_node_adv.backward()
             clip_grad_norm_(model.parameters(), optim_cfg.GRAD_NORM_CLIP)
             optimizer.step()
 
-            if 'domain_cls_loss' in trg_tb_dict:
-                tb_dict['trg_domain_cls_loss'] = trg_tb_dict['domain_cls_loss']
-                tb_dict['src_domain_cls_loss'] = tb_dict.pop('domain_cls_loss')
+            tb_dict['domain_align_loss'] = loss_node_adv.item()
 
         accumulated_iter += 1
-        disp_dict.update({'loss': src_loss.item() + trg_loss.item(), 'lr': cur_lr})
+        disp_dict.update({'loss': src_loss.item() + trg_d_loss.item() + loss_node_adv.item(), 'lr': cur_lr})
 
         # log to console and tensorboard
         if rank == 0:
@@ -164,7 +165,7 @@ def train_one_epoch_dann(model, optimizer, train_loader, model_func, lr_schedule
             tbar.refresh()
 
             if tb_log is not None:
-                tb_log.add_scalar('train/loss', src_loss.item() + trg_loss.item(), accumulated_iter)
+                tb_log.add_scalar('train/loss', src_loss.item() + trg_d_loss.item() + loss_node_adv.item(), accumulated_iter)
                 tb_log.add_scalar('meta_data/learning_rate', cur_lr, accumulated_iter)
                 for key, val in tb_dict.items():
                     # print(key, val)
