@@ -28,7 +28,7 @@ def model_fn_decorator():
 
     def model_func(model, batch_dict):
         load_data_to_gpu(batch_dict)
-        use_local_alignment = model.use_local_alignment
+        use_local_alignment = batch_dict['use_local_alignment']
         if use_local_alignment:
             ret_dict, tb_dict, disp_dict, dla_feat = model(batch_dict)
         else:

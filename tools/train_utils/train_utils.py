@@ -91,7 +91,12 @@ def train_one_epoch_dann(model, optimizer, train_loader, model_func, lr_schedule
         'total_it_each_epoch': total_it_each_epoch,
     }
 
-    use_local_alignment = model.use_local_alignment
+    if type(model) == torch.nn.parallel.distributed.DistributedDataParallel:
+        use_local_alignment = model.module.use_local_alignment
+        use_domain_cls = model.module.backbone_2d.use_domain_cls
+    else:
+        use_local_alignment = model.use_local_alignment
+        use_domain_cls = model.backbone_2d.use_domain_cls
     for cur_it in range(total_it_each_epoch):
         try:
             src_batch, trg_batch = next(dataloader_iter)
@@ -111,7 +116,6 @@ def train_one_epoch_dann(model, optimizer, train_loader, model_func, lr_schedule
             tb_log.add_scalar('meta_data/learning_rate', cur_lr, accumulated_iter)
 
         model.train()
-        model.use_local_alignment = False
 
         cur_train_dict['cur_it'] = cur_it
         cur_train_dict['data_split'] = True
@@ -120,14 +124,16 @@ def train_one_epoch_dann(model, optimizer, train_loader, model_func, lr_schedule
 
         optimizer.zero_grad()
         src_batch['domain_target'] = False
+        src_batch['use_local_alignment'] = False
         src_loss, tb_dict, disp_dict = model_func(model, src_batch)
         src_loss.backward()
         clip_grad_norm_(model.parameters(), optim_cfg.GRAD_NORM_CLIP)
         optimizer.step()
 
         trg_batch['domain_target'] = True
+        trg_batch['use_local_alignment'] = False
         trg_d_loss = torch.tensor(0.).cuda()
-        if model.backbone_2d.use_domain_cls:
+        if use_domain_cls:
             optimizer.zero_grad()
             trg_d_loss, trg_tb_dict, trg_disp_dict = model_func(model, trg_batch)
             trg_d_loss.backward()
@@ -139,8 +145,9 @@ def train_one_epoch_dann(model, optimizer, train_loader, model_func, lr_schedule
 
         loss_node_adv = torch.tensor(0.).cuda()
         if use_local_alignment:
-            model.use_local_alignment = True
             optimizer.zero_grad()
+            src_batch['use_local_alignment'] = True
+            trg_batch['use_local_alignment'] = True
             _, tb_dict, disp_dict, s_dla_feat = model_func(model, src_batch)
             _, trg_tb_dict, trg_disp_dict, t_dla_feat = model_func(model, trg_batch)
             sigma_list = [0.01, 0.1, 1, 10, 100]

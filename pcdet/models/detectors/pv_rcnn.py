@@ -53,7 +53,7 @@ class PVRCNN(Detector3DTemplate):
             loss, tb_dict, disp_dict = self.get_training_loss(only_domain_loss)
 
             ret_dict = {'loss': loss}
-            if self.use_local_alignment:
+            if self.use_local_alignment and batch_dict['use_local_alignment']:
                 pred_dicts, recall_dicts = self.post_processing(batch_dict)
                 batch_dict['pred_dicts'] = pred_dicts
                 if False:
@@ -113,11 +113,12 @@ class PVRCNN(Detector3DTemplate):
             pred_boxes = pred_dicts[b]['pred_boxes']
             pred_scores = pred_dicts[b]['pred_scores']
             # filter top K box according to pred_boxes
-            num_over_thres = (pred_scores < abs_thres).nonzero()[0][0]
-            if num_over_thres < rel_thres:
-                breakpoint()
-                b_features.append(torch.tensor([]).cuda())
-                continue
+            if False:
+                num_over_thres = (pred_scores < abs_thres).nonzero()[0][0]
+                if num_over_thres < rel_thres:
+                    breakpoint()
+                    b_features.append(torch.tensor([]).cuda())
+                    continue
             pred_boxes = pred_boxes[:rel_thres]
             pred_scores = pred_scores[:rel_thres]
 

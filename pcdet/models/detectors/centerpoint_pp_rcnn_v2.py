@@ -7,6 +7,10 @@ class CenterPoint_PointPillar_RCNNV2(Detector3DTemplateV2):
     def __init__(self, model_cfg, num_class, dataset):
         super().__init__(model_cfg=model_cfg, num_class=num_class, dataset=dataset)
         self.module_list = self.build_networks()
+        self.use_local_alignment = self.model_cfg.get('USE_LOCAL_ALIGNMENT', False)
+        if self.use_local_alignment:
+            self.dla_cfg = self.model_cfg.get('DLA_CONFIG', None)
+            self.dla_model = Net_MDA()
 
     def forward(self, batch_dict):
         batch_dict['spatial_features_stride'] = 1

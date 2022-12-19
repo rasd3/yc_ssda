@@ -10,17 +10,18 @@ DATA_CONFIG:
     PRED_VELOCITY: False
     BALANCED_RESAMPLING: True #False
     MAX_SWEEPS: 10
-    INFO_PATH: {
-        'train': [nuscenes_infos_10sweeps_train_train_0.10_5.pkl],
-        'test': [nuscenes_infos_10sweeps_val_train_0.10_5.pkl],
-    }
+    SRC_DATASET:
+        INFO_PATH: {
+            'train': [nuscenes_infos_10sweeps_train_train_0.25_1.pkl],
+            'test': [nuscenes_infos_10sweeps_val_train_0.25_1.pkl],
+        }
     DATA_AUGMENTOR:
         # DISABLE_AUG_LIST: ['random_object_scaling', 'random_world_flip', 'random_world_rotation', 'random_world_scaling', 'gt_sampling']
         DISABLE_AUG_LIST: ['random_object_scaling']
         AUG_CONFIG_LIST:
             - NAME: gt_sampling
               DB_INFO_PATH:
-                  - nuscenes_dbinfos_10sweeps_train_0.10_5.pkl
+                  - nuscenes_dbinfos_10sweeps_train_0.25_1.pkl
               PREPARE: {
                  filter_by_min_points: [
                      'car:5','truck:5', 'bus:5', 'motorcycle:5', 'pedestrian:5'
@@ -47,6 +48,13 @@ DATA_CONFIG:
 
             - NAME: random_world_scaling
               WORLD_SCALE_RANGE: [0.95, 1.05]
+
+            - NAME: normalize_object_size
+              SIZE_RES: [[-0.05, -0.00, -0.18], 
+                [-1.49, -0.39, -0.51], 
+                [-0.6, -0.14, -0.29], 
+                [-0.07, 0.01, 0.08], 
+                [-0.1, -0.05, -0.1]]
 
 
 
@@ -280,7 +288,7 @@ MODEL:
 OPTIMIZATION:
     BATCH_SIZE_PER_GPU: 4
     EVAL_BATCH_SIZE_PER_GPU: 8
-    NUM_EPOCHS: 20
+    NUM_EPOCHS: 4
 
     OPTIMIZER: adam_onecycle
     LR: 0.01
