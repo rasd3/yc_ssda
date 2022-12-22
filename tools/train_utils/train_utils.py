@@ -1,5 +1,6 @@
 import glob
 import os
+import copy
 
 import torch
 import tqdm
@@ -94,9 +95,13 @@ def train_one_epoch_dann(model, optimizer, train_loader, model_func, lr_schedule
     if type(model) == torch.nn.parallel.distributed.DistributedDataParallel:
         use_local_alignment = model.module.use_local_alignment
         use_domain_cls = model.module.backbone_2d.use_domain_cls
+        if use_local_alignment:
+            dla_cfg = model.module.dla_cfg
     else:
         use_local_alignment = model.use_local_alignment
         use_domain_cls = model.backbone_2d.use_domain_cls
+        if use_local_alignment:
+            dla_cfg = model.dla_cfg
     for cur_it in range(total_it_each_epoch):
         try:
             src_batch, trg_batch = next(dataloader_iter)
@@ -148,16 +153,22 @@ def train_one_epoch_dann(model, optimizer, train_loader, model_func, lr_schedule
             optimizer.zero_grad()
             src_batch['use_local_alignment'] = True
             trg_batch['use_local_alignment'] = True
-            _, tb_dict, disp_dict, s_dla_feat = model_func(model, src_batch)
-            _, trg_tb_dict, trg_disp_dict, t_dla_feat = model_func(model, trg_batch)
-            sigma_list = [0.01, 0.1, 1, 10, 100]
-            B, K, C = s_dla_feat.shape
-            loss_node_adv = 1 * mmd.mix_rbf_mmd2(s_dla_feat.reshape(-1, C),
-                                                 t_dla_feat.reshape(-1, C),
-                                                 sigma_list)
-            loss_node_adv.backward()
-            clip_grad_norm_(model.parameters(), optim_cfg.GRAD_NORM_CLIP)
-            optimizer.step()
+            with torch.autograd.set_detect_anomaly(True):
+                if dla_cfg.DIR == 'st':
+                    with torch.no_grad():
+                        _, tb_dict, disp_dict, s_dla_feat = model_func(model, src_batch)
+                    _, trg_tb_dict, trg_disp_dict, t_dla_feat = model_func(model, trg_batch)
+                else:
+                    _, tb_dict, disp_dict, s_dla_feat = model_func(model, src_batch)
+                    with torch.no_grad():
+                        _, trg_tb_dict, trg_disp_dict, t_dla_feat = model_func(model, trg_batch)
+                K = min(s_dla_feat.shape[0], t_dla_feat.shape[0])
+                s_dla_feat, t_dla_feat = s_dla_feat[:K], t_dla_feat[:K]
+                sigma_list = [0.01, 0.1, 1, 10, 100]
+                loss_node_adv = 1 * mmd.mix_rbf_mmd2(s_dla_feat, t_dla_feat, sigma_list)
+                loss_node_adv.backward()
+                clip_grad_norm_(model.parameters(), optim_cfg.GRAD_NORM_CLIP)
+                optimizer.step()
 
             tb_dict['domain_align_loss'] = loss_node_adv.item()
 

@@ -268,7 +268,7 @@ MODEL:
         REL_THRES: 3
         ABS_THRES: 0.6
         SAMP_METHOD: rand
-        DIR: st
+        DIR: ts
 
     POST_PROCESSING:
         RECALL_THRESH_LIST: [0.3, 0.5, 0.7]

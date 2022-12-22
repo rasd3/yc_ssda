@@ -11,7 +11,7 @@ class conv_2d(nn.Module):
             self.conv = nn.Sequential(
                 nn.Conv2d(in_ch, out_ch, kernel_size=kernel),
                 nn.BatchNorm2d(out_ch),
-                nn.ReLU(inplace=True)
+                nn.ReLU(inplace=False)
             )
         elif activation == 'tanh':
             self.conv = nn.Sequential(
@@ -35,7 +35,7 @@ class fc_layer(nn.Module):
     def __init__(self, in_ch, out_ch, bn=True, activation='leakyrelu'):
         super(fc_layer, self).__init__()
         if activation == 'relu':
-            self.ac = nn.ReLU(inplace=True)
+            self.ac = nn.ReLU(inplace=False)
         elif activation == 'leakyrelu':
             self.ac = nn.LeakyReLU()
         if bn:
@@ -130,7 +130,7 @@ class CALayer(nn.Module):
         # feature channel downscale and upscale --> channel weight
         self.conv_du = nn.Sequential(
                 nn.Conv2d(channel, channel // reduction, 1, padding=0, bias=True),
-                nn.ReLU(inplace=True),
+                nn.ReLU(inplace=False),
                 nn.Conv2d(channel // reduction, channel, 1, padding=0, bias=True),
                 nn.Sigmoid()
         )

@@ -136,13 +136,17 @@ class PVRCNN(Detector3DTemplate):
             for b_idx in range(rel_thres):
                 b_mask = box_idxs_of_pts == b_idx
                 b_points = points[b_mask]
+                if b_mask.sum() < 10:
+                    continue
                 b_points_samp = common_utils.sample_points(b_points, self.dla_cfg.SAMP_METHOD, 256)
                 s_points.append(b_points_samp.unsqueeze(0))
+            if len(s_points) == 0:
+                b_features.append(torch.zeros((0, 4096)).cuda())
             s_points = torch.cat(s_points, dim=0).permute(0, 2, 1).unsqueeze(3)
             if batch_dict['domain_target']:
                 s_features = self.dla_model(s_points, node_adaptation_t=True)
             else:
                 s_features = self.dla_model(s_points, node_adaptation_s=True)
-            b_features.append(s_features.unsqueeze(0))
+            b_features.append(s_features)
         b_features = torch.cat(b_features, dim=0)
         return b_features
