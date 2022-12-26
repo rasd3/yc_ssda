@@ -7,13 +7,14 @@ DATA_CONFIG:
     VERSION: 'v0.5-omega-trainval'
     # TARGET: True
     SHIFT_COOR: [0.0, 0.0, -1.8]
+    U_SHIFT_COOR: True
     MAX_SWEEPS: 1
-    REPEAT: 1
+    REPEAT: 5
     PRED_VELOCITY: False
     BALANCED_RESAMPLING: False
     INFO_PATH: {
-        'train': [omega_infos_1sweeps_train_train_0.20_1.pkl, omega_infos_1sweeps_unlabeled_train_0.20_1.pkl],
-        'test': [omega_infos_1sweeps_val_train_0.20_1.pkl],
+        'train': [omega_infos_1sweeps_train_train_0.10_2.pkl, omega_infos_1sweeps_unlabeled_train_0.10_2.pkl],
+        'test': [omega_infos_1sweeps_val_train_0.10_2.pkl],
     }
 
 

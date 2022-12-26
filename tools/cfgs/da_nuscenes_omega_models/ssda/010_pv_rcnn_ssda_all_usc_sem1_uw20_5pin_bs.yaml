@@ -5,12 +5,14 @@ DATA_CONFIG:
     CLASS_NAMES: ['car', 'truck', 'bus', 'motorcycle', 'pedestrian']
     REPEAT: 5
     SRC_DATASET: 
+        BALANCED_RESAMPLING: True
         POINT_FEATURE_ENCODING: {
             encoding_type: absolute_coordinates_encoding,
             used_feature_list: ['x', 'y', 'z', 'intensity', 'timestamp'],
             src_feature_list: ['x', 'y', 'z', 'intensity', 'timestamp'],
         }
     TRG_DATASET:
+        BALANCED_RESAMPLING: True
         POINT_FEATURE_ENCODING: {
             encoding_type: absolute_coordinates_encoding,
             used_feature_list: ['x', 'y', 'z', 'intensity', 'timestamp'],

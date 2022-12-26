@@ -33,8 +33,8 @@ class NuScenesDatasetSSL(DatasetTemplate):
         self.repeat = self.dataset_cfg.REPEAT
         self.include_nuscenes_data(self.mode)
         self.shift_coor = self.dataset_cfg.get('SHIFT_COOR', None)
-        #  if self.training and self.dataset_cfg.get('BALANCED_RESAMPLING', False):
-        #  self.labeled_infos = self.balanced_infos_resampling(self.labeled_infos)
+        if self.training and self.dataset_cfg.get('BALANCED_RESAMPLING', False):
+            self.labeled_infos = self.balanced_infos_resampling(self.labeled_infos)
 
     def include_nuscenes_data(self, mode):
         self.logger.info('Loading NuScenes dataset')
