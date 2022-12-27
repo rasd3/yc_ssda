@@ -445,7 +445,6 @@ class DADatasetCO(torch_data.Dataset):
 
     def __getitem__(self, index):
 
-        breakpoint()
         if self.training:
             if index < len(self.src_dataset):
                 item = self.src_dataset.__getitem__(index)

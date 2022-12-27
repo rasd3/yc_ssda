@@ -1,46 +1,59 @@
 CLASS_NAMES: ['car', 'truck', 'bus', 'motorcycle', 'pedestrian']
 
 DATA_CONFIG:
-    _BASE_CONFIG_: cfgs/dataset_configs/da_nuscenes_omega_co.yaml
+    _BASE_CONFIG_: cfgs/dataset_configs/da_nuscenes_omega_dann_dataset.yaml
     CLASS_NAMES: ['car', 'truck', 'bus', 'motorcycle', 'pedestrian']
 
     PRED_VELOCITY: False
     REPEAT: 1
+    DANN_DATA_SPLIT: True
 
-    DATA_AUGMENTOR:
-        # DISABLE_AUG_LIST: ['random_object_scaling', 'random_world_flip', 'random_world_rotation', 'random_world_scaling', 'gt_sampling']
-        DISABLE_AUG_LIST: ['random_object_scaling']
-        AUG_CONFIG_LIST:
-            - NAME: gt_sampling
-              DB_INFO_PATH:
-                  - nuscenes_dbinfos_10sweeps_train_0.25_1.pkl
-              PREPARE: {
-                 filter_by_min_points: [
-                     'car:5','truck:5', 'bus:5', 'motorcycle:5', 'pedestrian:5'
-                 ],
-              }
+    MAX_SWEEPS: 10
+    SRC_DATASET:
+        INFO_PATH: {
+            'train': [nuscenes_infos_10sweeps_train_train_0.25_1.pkl],
+            'test': [nuscenes_infos_10sweeps_val_train_0.25_1.pkl],
+        }
+        DATA_AUGMENTOR:
+            # DISABLE_AUG_LIST: ['random_object_scaling', 'random_world_flip', 'random_world_rotation', 'random_world_scaling', 'gt_sampling']
+            DISABLE_AUG_LIST: ['random_object_scaling']
+            AUG_CONFIG_LIST:
+                - NAME: gt_sampling
+                  DB_INFO_PATH:
+                      - nuscenes_dbinfos_10sweeps_train_0.25_1.pkl
+                  PREPARE: {
+                     filter_by_min_points: [
+                         'car:5','truck:5', 'bus:5', 'motorcycle:5', 'pedestrian:5'
+                     ],
+                  }
 
-              SAMPLE_GROUPS: [
-                  'car:2','truck:3', 'bus:4', 'motorcycle:6', 'pedestrian:2'
-              ]
+                  SAMPLE_GROUPS: [
+                      'car:2','truck:3', 'bus:4', 'motorcycle:6', 'pedestrian:2'
+                  ]
 
-              NUM_POINT_FEATURES: 5
-              DATABASE_WITH_FAKELIDAR: False
-              REMOVE_EXTRA_WIDTH: [0.0, 0.0, 0.0]
-              LIMIT_WHOLE_SCENE: True
+                  NUM_POINT_FEATURES: 5
+                  DATABASE_WITH_FAKELIDAR: False
+                  REMOVE_EXTRA_WIDTH: [0.0, 0.0, 0.0]
+                  LIMIT_WHOLE_SCENE: True
 
-            - NAME: random_object_scaling
-              SCALE_UNIFORM_NOISE: [0.75, 1.0]
+                - NAME: random_object_scaling
+                  SCALE_UNIFORM_NOISE: [0.75, 1.0]
 
-            - NAME: random_world_flip
-              ALONG_AXIS_LIST: ['x', 'y']
+                - NAME: random_world_flip
+                  ALONG_AXIS_LIST: ['x', 'y']
 
-            - NAME: random_world_rotation
-              WORLD_ROT_ANGLE: [-0.3925, 0.3925]
+                - NAME: random_world_rotation
+                  WORLD_ROT_ANGLE: [-0.3925, 0.3925]
 
-            - NAME: random_world_scaling
-              WORLD_SCALE_RANGE: [0.95, 1.05]
+                - NAME: random_world_scaling
+                  WORLD_SCALE_RANGE: [0.95, 1.05]
 
+                - NAME: normalize_object_size
+                  SIZE_RES: [[-0.05, -0.00, -0.18], 
+                    [-1.49, -0.39, -0.51], 
+                    [-0.6, -0.14, -0.29], 
+                    [-0.07, 0.01, 0.08], 
+                    [-0.1, -0.05, -0.1]]
 
 
 MODEL:
@@ -58,6 +71,14 @@ MODEL:
 
     BACKBONE_2D:
         NAME: BaseBEVBackbone
+
+        USE_DOMAIN_CLASSIFIER: True
+        DC_VERSION: POOL_1
+        LOSS_CONFIG:
+            LOSS_DC: NLL
+            LOSS_WEIGHTS: {
+                'dc_weight': 2.0,
+            }
 
         LAYER_NUMS: [5, 5]
         LAYER_STRIDES: [1, 2]

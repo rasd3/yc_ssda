@@ -19,7 +19,7 @@ SRC_DATASET:
         src_feature_list: ['x', 'y', 'z', 'intensity', 'timestamp'],
     }
     DATA_AUGMENTOR:
-        DISABLE_AUG_LIST: ['placeholder', 'gt_sampling']
+        DISABLE_AUG_LIST: ['placeholder']
     INFO_PATH: {
         'train': [nuscenes_infos_10sweeps_train.pkl],
         'test': [nuscenes_infos_10sweeps_val.pkl],
