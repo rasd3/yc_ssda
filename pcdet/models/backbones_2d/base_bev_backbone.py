@@ -128,7 +128,8 @@ class BaseBEVBackbone(nn.Module):
             domain_label[trg_idx - 1] = 0.
             domain_label[trg_idx] = 1.
         if self.domain_data_split:
-            domain_label.fill_(self.forward_ret_dict['domain_target'])
+            for b in range(batch_size):
+                domain_label[b].fill_(self.forward_ret_dict['domain_target'][b])
 
         dc_loss_weight = self.domain_loss_cfg.LOSS_WEIGHTS.dc_weight
         domain_cls_loss = self.domain_cls_loss(domain_output, domain_label)
@@ -205,7 +206,7 @@ class BaseBEVBackbone(nn.Module):
             domain_out = self.domain_cls(x, alpha)
 
             self.forward_ret_dict['domain_output'] = domain_out
-            self.forward_ret_dict['domain_target'] = data_dict['domain_target']
+            self.forward_ret_dict['domain_target'] = data_dict['domain']
             # remove target data
             if not data_dict['cur_train_meta'].get('data_split', False):
                 self.remove_trg_data(data_dict)

@@ -321,3 +321,78 @@ def normalize_object_size(boxes, points, boxes_mask, size_reses, gt_names, class
             points = points[keep_mask]
 
     return points, boxes
+
+def rotate_objects(gt_boxes, points, gt_boxes_mask, rotation_perturb, prob, num_try=50):
+    """
+
+    Args:
+        gt_boxes: [N, 7] (x, y, z, dx, dy, dz, heading) on unified coordinate
+        points: [M]
+        gt_boxes_mask: [N] bool
+        rotation_perturb: ratation noise parameter
+        prob: prob to random rotate object
+        num_try: times to try rotate one object
+    Returns:
+
+    """
+    num_boxes = gt_boxes.shape[0]
+    if not isinstance(rotation_perturb, (list, tuple, np.ndarray)):
+        rotation_perturb = [-rotation_perturb, rotation_perturb]
+
+    # with prob to rotate each object
+    rot_mask = np.random.uniform(0, 1, size=[num_boxes]) < prob
+
+    # generate random ratate noise for each boxes
+    rot_noise = np.random.uniform(rotation_perturb[0], rotation_perturb[1], size=[num_boxes, num_try])
+
+    for idx in range(num_boxes):
+        # don't need to rotate this object
+        if (not rot_mask[idx]) or (not gt_boxes_mask[idx]):
+            continue
+
+        # generate rotated boxes num_try times
+        rot_box = copy.deepcopy(gt_boxes[idx])
+        # [num_try, 7]
+        rot_box = rot_box.reshape(1, -1).repeat([num_try], axis=0)
+        rot_box[:, 6] += rot_noise[idx]
+
+        # detect conflict
+        # [num_try, N-1]
+        if num_boxes > 1:
+            self_mask = np.ones(num_boxes, dtype=np.bool_)
+            self_mask[idx] = False
+            iou_matrix = iou3d_nms_utils.boxes_bev_iou_cpu(rot_box, gt_boxes[self_mask])
+            ious = np.max(iou_matrix, axis=1)
+            no_conflict_mask = (ious == 0)
+            # all trys have conflict with other gts
+            if no_conflict_mask.sum() == 0:
+                continue
+
+            # rotate points and assign new box
+            try_idx = no_conflict_mask.nonzero()[0][0]
+        else:
+            try_idx = 0
+
+        point_masks = roiaware_pool3d_utils.points_in_boxes_cpu(points[:, 0:3],
+                                                                np.expand_dims(gt_boxes[idx], axis=0)).squeeze(0)
+
+        object_points = points[point_masks > 0]
+        object_center = gt_boxes[idx][0:3]
+        object_points[:, 0:3] -= object_center
+
+        object_points = common_utils.rotate_points_along_z(object_points[np.newaxis, :, :],
+                                                           np.array([rot_noise[idx][try_idx]]))[0]
+
+        object_points[:, 0:3] += object_center
+        points[point_masks > 0] = object_points
+
+        # remove bg points that lie the position we want to place object
+        points_dst_mask = roiaware_pool3d_utils.points_in_boxes_cpu(points[:, 0:3],
+                                                                    np.expand_dims(rot_box[try_idx], axis=0)).squeeze(0)
+
+        keep_mask = ~np.logical_xor(point_masks, points_dst_mask)
+        points = points[keep_mask]
+
+        gt_boxes[idx] = rot_box[try_idx]
+
+    return gt_boxes, points

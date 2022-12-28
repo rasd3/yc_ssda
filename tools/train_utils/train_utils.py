@@ -8,6 +8,7 @@ from torch.nn.utils import clip_grad_norm_
 
 from pcdet.models.model_utils.dsnorm import set_ds_target
 from pcdet.models.model_utils import mmd
+from pcdet.config import cfg
 
 def train_one_epoch(model, optimizer, train_loader, model_func, lr_scheduler, accumulated_iter, optim_cfg,
                     rank, tbar, total_it_each_epoch, dataloader_iter, tb_log=None, leave_pbar=False,
@@ -196,6 +197,13 @@ def train_model(model, optimizer, train_loader, model_func, lr_scheduler, optim_
                 start_epoch, total_epochs, start_iter, rank, tb_log, ckpt_save_dir, train_sampler=None,
                 lr_warmup_scheduler=None, ckpt_save_interval=1, max_ckpt_save_num=50,
                 merge_all_iters_to_one_epoch=False):
+    if cfg.DATA_CONFIG.get('PROG_AUG', None) and cfg.DATA_CONFIG.PROG_AUG.ENABLED and \
+        start_epoch > 0:
+        for cur_epoch in range(start_epoch):
+            if cur_epoch in cfg.DATA_CONFIG.PROG_AUG.UPDATE_AUG:
+                train_loader.dataset.trg_dataset.data_augmentor.re_prepare(
+                    augmentor_configs=None, intensity=cfg.DATA_CONFIG.PROG_AUG.SCALE)
+
     accumulated_iter = start_iter
     with tqdm.trange(start_epoch, total_epochs, desc='epochs', dynamic_ncols=True, leave=(rank == 0)) as tbar:
         total_it_each_epoch = len(train_loader)
@@ -214,10 +222,18 @@ def train_model(model, optimizer, train_loader, model_func, lr_scheduler, optim_
                 cur_scheduler = lr_warmup_scheduler
             else:
                 cur_scheduler = lr_scheduler
+
+            # curriculum data augmentation for SSDA
+            if cfg.DATA_CONFIG.get('PROG_AUG', None) and cfg.DATA_CONFIG.PROG_AUG.ENABLED and \
+                (cur_epoch in cfg.DATA_CONFIG.PROG_AUG.UPDATE_AUG):
+                train_loader.dataset.trg_dataset.data_augmentor.re_prepare(
+                    augmentor_configs=None, intensity=cfg.DATA_CONFIG.PROG_AUG.SCALE)
+
             if 'DANN' in type(train_loader.dataset).__name__ and train_loader.dataset.divide_data:
                 train_epoch_func = train_one_epoch_dann
             else:
                 train_epoch_func = train_one_epoch
+
             accumulated_iter = train_epoch_func(
                 model, optimizer, train_loader, model_func,
                 lr_scheduler=cur_scheduler,
