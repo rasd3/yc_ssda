@@ -1,16 +1,52 @@
 CLASS_NAMES: ['car', 'truck', 'bus', 'motorcycle', 'pedestrian']
 
 DATA_CONFIG:
-    _BASE_CONFIG_: cfgs/dataset_configs/da_nuscenes_co_omega_dann_dataset.yaml
+    _BASE_CONFIG_: cfgs/dataset_configs/da_nuscenes_omega_ssda.yaml
     CLASS_NAMES: ['car', 'truck', 'bus', 'motorcycle', 'pedestrian']
+    PROG_AUG:
+        ENABLED: True
+        UPDATE_AUG: [0, 8, 16, 24, 32]
+        SCALE: 1.1
 
-    PRED_VELOCITY: False
-    REPEAT: 1
-    DANN_DATA_SPLIT: True
+    SRC_DATASET: 
+        POINT_FEATURE_ENCODING: {
+            encoding_type: absolute_coordinates_encoding,
+            used_feature_list: ['x', 'y', 'z', 'intensity', 'timestamp'],
+            src_feature_list: ['x', 'y', 'z', 'intensity', 'timestamp'],
+        }
+    TRG_DATASET:
+        POINT_FEATURE_ENCODING: {
+            encoding_type: absolute_coordinates_encoding,
+            used_feature_list: ['x', 'y', 'z', 'intensity', 'timestamp'],
+            src_feature_list: ['x', 'y', 'z', 'intensity', 'timestamp'],
+        }
+        U_SHIFT_COOR: True
+        INFO_PATH: {
+            'train': [omega_infos_1sweeps_train_train_0.05_1.pkl, omega_infos_1sweeps_unlabeled_train_0.05_1.pkl],
+            'test': [omega_infos_1sweeps_val_train_0.05_1.pkl],
+        }
+        DATA_AUGMENTOR:
+            DISABLE_AUG_LIST: ['placeholder']
+            AUG_CONFIG_LIST:
+                - NAME: random_object_scaling
+                  SCALE_UNIFORM_NOISE: [ 0.95, 1.05 ]
+
+                - NAME: random_world_flip
+                  ALONG_AXIS_LIST: ['x', 'y']
+
+                - NAME: random_world_rotation
+                  WORLD_ROT_ANGLE: [ -0.78539816, 0.78539816 ]
+
+                - NAME: random_world_scaling
+                  WORLD_SCALE_RANGE: [0.97, 1.03]
+
+                - NAME: random_object_rotation
+                  ROT_PROB: 0.8
+                  ROT_UNIFORM_NOISE: [ -0.38539816, 0.38539816 ]
 
 
 MODEL:
-    NAME: PVRCNN
+    NAME: PVRCNN_SSL
 
     VFE:
         NAME: MeanVFE
@@ -24,14 +60,6 @@ MODEL:
 
     BACKBONE_2D:
         NAME: BaseBEVBackbone
-
-        USE_DOMAIN_CLASSIFIER: True
-        DC_VERSION: POOL_1
-        LOSS_CONFIG:
-            LOSS_DC: NLL
-            LOSS_WEIGHTS: {
-                'dc_weight': 2.0,
-            }
 
         LAYER_NUMS: [5, 5]
         LAYER_STRIDES: [1, 2]
@@ -49,7 +77,7 @@ MODEL:
         NUM_DIR_BINS: 2
 
         ANCHOR_GENERATOR_CONFIG: [
-           {
+          {
                 'class_name': car,
                 'anchor_sizes': [[4.63, 1.97, 1.74]],
                 'anchor_rotations': [0, 1.57],
@@ -226,7 +254,6 @@ MODEL:
         SCORE_THRESH: 0.1
         OUTPUT_RAW_SCORE: False
 
-        # EVAL_METRIC: nuscenes
         EVAL_METRIC: kitti
 
         NMS_CONFIG:
@@ -236,11 +263,19 @@ MODEL:
             NMS_PRE_MAXSIZE: 4096
             NMS_POST_MAXSIZE: 500
 
+    THRESH: [0.5, 0.25, 0.25, 0.25, 0.25]
+    UNLABELED_SUPERVISE_CLS: True
+    UNLABELED_SUPERVISE_REFINE: True
+    UNLABELED_WEIGHT: 3.0
+    SEM_THRESH: [0.1, 0.0, 0.0, 0.0, 0.0]
+    SUPERVISE_MODE: 0
+    NO_NMS: False
+
 
 OPTIMIZATION:
-    BATCH_SIZE_PER_GPU: 4
-    EVAL_BATCH_SIZE_PER_GPU: 8
-    NUM_EPOCHS: 20
+    BATCH_SIZE_PER_GPU: 1 #2
+    EVAL_BATCH_SIZE_PER_GPU: 8 #8
+    NUM_EPOCHS: 50
 
     OPTIMIZER: adam_onecycle
     LR: 0.01

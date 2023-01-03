@@ -172,7 +172,7 @@ class DADatasetCO(torch_data.Dataset):
     def evaluation(self, det_annos, class_names, **kwargs):
         if kwargs['eval_metric'] == 'kitti':
             eval_det_annos = copy.deepcopy(det_annos)
-            eval_gt_annos = copy.deepcopy(self.trg_dataset.labeled_infos)
+            eval_gt_annos = copy.deepcopy(self.trg_dataset.infos)
             return self.trg_dataset.kitti_eval(eval_det_annos, eval_gt_annos, class_names)
         elif kwargs['eval_metric'] == 'nuscenes':
             return self.trg_dataset.nuscene_eval(det_annos, class_names, **kwargs)

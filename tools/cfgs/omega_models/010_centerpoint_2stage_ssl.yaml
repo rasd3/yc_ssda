@@ -10,7 +10,7 @@ DATA_CONFIG:
     MAX_SWEEPS: 1
     REPEAT: 5
     PRED_VELOCITY: False
-    BALANCED_RESAMPLING: False #False
+    BALANCED_RESAMPLING: True #False
 
     INFO_PATH: {
         'train': [omega_infos_1sweeps_train_train_0.10_2.pkl, omega_infos_1sweeps_unlabeled_train_0.10_2.pkl],
@@ -50,9 +50,9 @@ DATA_CONFIG:
             - NAME: random_world_scaling
               WORLD_SCALE_RANGE: [0.95, 1.1]
             
-            - NAME: random_world_translation
-              NOISE_TRANSLATE_STD: 0.5
-              ALONG_AXIS_LIST: ['x', 'y', 'z']
+            # - NAME: random_world_translation
+              # NOISE_TRANSLATE_STD: 0.5
+              # ALONG_AXIS_LIST: ['x', 'y', 'z']
 
     DATA_PROCESSOR:
         - NAME: mask_points_and_boxes_outside_range
