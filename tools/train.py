@@ -75,6 +75,7 @@ def parse_config():
 
     if args.thresh is not None:
         cfg.MODEL.THRESH = [float(x) for x in args.thresh.split(',')]
+    if args.sem_thresh is not None:
         cfg.MODEL.SEM_THRESH = [float(x) for x in args.sem_thresh.split(',')]
     cfg.MODEL.UNLABELED_SUPERVISE_CLS = args.unlabeled_supervise_cls
     cfg.MODEL.UNLABELED_SUPERVISE_REFINE = args.unlabeled_supervise_refine

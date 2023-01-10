@@ -45,10 +45,10 @@ DATA_CONFIG:
               ALONG_AXIS_LIST: ['x', 'y']
 
             - NAME: random_world_rotation
-              WORLD_ROT_ANGLE: [-0.78539816, 0.78539816]
+              WORLD_ROT_ANGLE: [-0.3925, 0.3925]
 
             - NAME: random_world_scaling
-              WORLD_SCALE_RANGE: [0.95, 1.1]
+              WORLD_SCALE_RANGE: [0.95, 1.05]
             
             # - NAME: random_world_translation
               # NOISE_TRANSLATE_STD: 0.5
@@ -64,13 +64,16 @@ DATA_CONFIG:
             'test': False
           }
 
-        - NAME: transform_points_to_voxels
+        # - NAME: transform_points_to_voxels
+          # VOXEL_SIZE: [0.2, 0.2, 8.0]
+          # MAX_POINTS_PER_VOXEL: 20
+          # MAX_NUMBER_OF_VOXELS: {
+            # 'train': 30000,
+            # 'test': 30000
+          # }
+
+        - NAME: transform_points_to_voxels_placeholder
           VOXEL_SIZE: [0.2, 0.2, 8.0]
-          MAX_POINTS_PER_VOXEL: 20
-          MAX_NUMBER_OF_VOXELS: {
-            'train': 30000,
-            'test': 30000
-          }
         # - NAME: transform_points_to_voxels_placeholder
           # VOXEL_SIZE: [0.32, 0.32, 6.0] #[0.2, 0.2, 8.0]
           # VOXEL_SIZE: [0.2, 0.2, 8.0]

@@ -45,10 +45,10 @@ DATA_CONFIG:
               ALONG_AXIS_LIST: ['x', 'y']
 
             - NAME: random_world_rotation
-              WORLD_ROT_ANGLE: [-0.78539816, 0.78539816]
+              WORLD_ROT_ANGLE: [-0.3925, 0.3925]
 
             - NAME: random_world_scaling
-              WORLD_SCALE_RANGE: [0.95, 1.1]
+              WORLD_SCALE_RANGE: [0.95, 1.05]
             
             # - NAME: random_world_translation
               # NOISE_TRANSLATE_STD: 0.5
