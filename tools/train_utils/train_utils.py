@@ -26,6 +26,7 @@ def train_one_epoch(model, optimizer, train_loader, model_func, lr_scheduler, ac
         'total_it_each_epoch': total_it_each_epoch,
     }
 
+    pseudo_match_cls = [torch.zeros((2, 0)) for _ in range(model.num_class)]
     for cur_it in range(total_it_each_epoch):
         try:
             batch = next(dataloader_iter)

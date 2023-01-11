@@ -34,6 +34,7 @@ class PVRCNN_SSL(Detector3DTemplate):
         # self.module_list = self.build_networks()
         # self.module_list_ema = self.build_networks()
         self.thresh = model_cfg.THRESH
+        self.num_class = num_class
         self.sem_thresh = model_cfg.SEM_THRESH
         self.unlabeled_supervise_cls = model_cfg.UNLABELED_SUPERVISE_CLS
         self.unlabeled_supervise_refine = model_cfg.UNLABELED_SUPERVISE_REFINE
@@ -42,12 +43,13 @@ class PVRCNN_SSL(Detector3DTemplate):
         self.no_nms = model_cfg.NO_NMS
         self.supervise_mode = model_cfg.SUPERVISE_MODE
         self.no_data = model_cfg.get('NO_DATA', None)
+        self.adaptive_thres = model_cfg.get('ADAPTIVE_THRES', False)
 
     def forward(self, batch_dict):
         if False:
             import cv2
             b_size = batch_dict['gt_boxes'].shape[0]
-            for b in range(b_size):
+            for b in [1]: #range(b_size):
                 points = batch_dict['points'][batch_dict['points'][:, 0] ==
                                               b][:, 1:4].cpu().numpy()
                 gt_boxes = batch_dict['gt_boxes'][b].cpu().numpy().copy()
@@ -56,6 +58,7 @@ class PVRCNN_SSL(Detector3DTemplate):
                 cv2.imwrite('test_%02d.png' % b, det)
             breakpoint()
 
+        disp_dict = {}
         if self.training:
             mask = batch_dict['mask'].view(-1)
 
@@ -104,6 +107,31 @@ class PVRCNN_SSL(Detector3DTemplate):
                 pseudo_labels = []
                 max_box_num = batch_dict['gt_boxes'].shape[1]
                 max_pseudo_box_num = 0
+                if self.adaptive_thres:
+                    # calculate if pred boxes match with gt boxes in labeled data
+                    C_THRES = torch.tensor([0.7, 0.7, 0.7, 0.5, 0.5]).cuda()
+                    ind = unlabeled_mask[0] - 1
+                    tl_num_gt = batch_dict_ema['gt_boxes'][ind].sum(1).nonzero().shape[0]
+                    tl_gt_boxes = batch_dict_ema['gt_boxes'][ind][:tl_num_gt]
+
+                    t_pred_boxes = pred_dicts[ind]['pred_boxes'].clone()
+                    t_pred_scores = pred_dicts[ind]['pred_scores'].clone()
+                    t_pred_labels = pred_dicts[ind]['pred_labels'].clone()
+                    
+                    pred_iou = iou3d_nms_utils.boxes_iou3d_gpu(t_pred_boxes[:, :7], 
+                                                               tl_gt_boxes[:, :7])
+                    pred_thres = C_THRES[t_pred_labels - 1]
+                    pred_match = pred_iou.max(1)[0] >= pred_thres
+                    pred_res = []
+                    for cls in range(1, self.num_class + 1):
+                        c_inds = t_pred_labels == cls
+                        tc_boxes = t_pred_boxes[c_inds]
+                        tc_scores = t_pred_scores[c_inds]
+                        tc_labels = t_pred_labels[c_inds]
+                        tc_match = pred_match[c_inds]
+                        pred_res.append(torch.stack([tc_scores, tc_match]))
+                    disp_dict['cls_pred'] = pred_res
+
                 for ind in unlabeled_mask:
                     pseudo_score = pred_dicts[ind]['pred_scores']
                     pseudo_box = pred_dicts[ind]['pred_boxes']
@@ -269,7 +297,6 @@ class PVRCNN_SSL(Detector3DTemplate):
             for cur_module in self.pv_rcnn.module_list:
                 batch_dict = cur_module(batch_dict)
 
-            disp_dict = {}
             loss_rpn_cls, loss_rpn_box, tb_dict = self.pv_rcnn.dense_head.get_loss(
                 scalar=False)
             loss_point, tb_dict = self.pv_rcnn.point_head.get_loss(
