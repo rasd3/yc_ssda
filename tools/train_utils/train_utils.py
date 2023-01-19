@@ -5,6 +5,7 @@ import copy
 import torch
 import tqdm
 from torch.nn.utils import clip_grad_norm_
+import torch.distributed as dist
 
 from pcdet.models.model_utils.dsnorm import set_ds_target
 from pcdet.models.model_utils import mmd
@@ -26,7 +27,11 @@ def train_one_epoch(model, optimizer, train_loader, model_func, lr_scheduler, ac
         'total_it_each_epoch': total_it_each_epoch,
     }
 
-    pseudo_match_cls = [torch.zeros((2, 0)) for _ in range(model.num_class)]
+    dist_train = False
+    if type(model) == torch.nn.parallel.distributed.DistributedDataParallel:
+        dist_train = True
+    num_class = model.module.num_class if dist_train else model.num_class
+    pseudo_match_cls = [torch.zeros((2, 0)).cuda() for _ in range(num_class)]
     for cur_it in range(total_it_each_epoch):
         try:
             batch = next(dataloader_iter)
@@ -52,6 +57,11 @@ def train_one_epoch(model, optimizer, train_loader, model_func, lr_scheduler, ac
         batch['cur_train_meta'] = cur_train_dict
 
         loss, tb_dict, disp_dict = model_func(model, batch)
+        if 'ad_cls_pred' in disp_dict:
+            for cls in range(num_class):
+                pseudo_match_cls[cls] = torch.cat([pseudo_match_cls[cls],
+                                                   disp_dict['ad_cls_pred'][cls]], dim=1)
+            disp_dict.pop('ad_cls_pred')
 
         loss.backward()
         clip_grad_norm_(model.parameters(), optim_cfg.GRAD_NORM_CLIP)
@@ -73,6 +83,40 @@ def train_one_epoch(model, optimizer, train_loader, model_func, lr_scheduler, ac
                 for key, val in tb_dict.items():
                     # print(key, val)
                     tb_log.add_scalar('train/' + key, val, accumulated_iter)
+
+    adaptive_thres_flag = model.module.use_adaptive_thres if dist_train else model.use_adaptive_thres
+    if adaptive_thres_flag:
+        a_thres = model.module.adaptive_thres if dist_train else model.adaptive_thres
+        u_thres = model.module.thresh if dist_train else model.thresh
+        for cls in range(num_class):
+            num_pred = pseudo_match_cls[cls].shape[1]
+
+            sort_ind = pseudo_match_cls[cls][0].argsort(descending=True)
+            pseudo_match_cls[cls][0] = pseudo_match_cls[cls][0][sort_ind]
+            pseudo_match_cls[cls][1] = pseudo_match_cls[cls][1][sort_ind]
+
+            match_cum = torch.cumsum(pseudo_match_cls[cls][1], dim=0)
+            match_cum = match_cum / (torch.arange(num_pred).cuda() + 1)
+            if (match_cum > a_thres).sum():
+                c_thres = pseudo_match_cls[cls][0][(match_cum > a_thres).nonzero()[-1][0]]
+                u_thres[cls] = c_thres.cpu().item()
+
+        if dist_train:
+            # average dist u_thres
+            world_size = dist.get_world_size()
+            u_thres = torch.tensor(u_thres).cuda()
+            group = dist.new_group([i for i in range(world_size)])
+            dist.barrier()
+            dist.all_reduce(u_thres, op=dist.ReduceOp.SUM, group=group)
+            u_thres = u_thres / world_size
+            u_thres = u_thres.cpu().tolist()
+        print('Adaptive Threshold :', u_thres)
+
+        if type(model) == torch.nn.parallel.distributed.DistributedDataParallel:
+            model.module.thresh = u_thres
+        else:
+            model.thresh = u_thres
+
     if rank == 0:
         pbar.close()
     return accumulated_iter

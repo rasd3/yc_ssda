@@ -31,6 +31,9 @@ class CenterPoint_PointPillar_RCNNV2_SSL(Detector3DTemplateV2):
         self.unlabeled_weight = model_cfg.UNLABELED_WEIGHT
         self.no_nms = model_cfg.NO_NMS
         self.supervise_mode = model_cfg.SUPERVISE_MODE
+        self.use_adaptive_thres = model_cfg.get('USE_ADAPTIVE_THRES', False)
+        self.adaptive_thres = model_cfg.get('ADAPTIVE_THRES', False)
+        self.no_data = model_cfg.get('NO_DATA', None)
 
     def forward(self, batch_dict):
         if False:
@@ -46,9 +49,24 @@ class CenterPoint_PointPillar_RCNNV2_SSL(Detector3DTemplateV2):
             breakpoint()
         if self.training:
             mask = batch_dict['mask'].view(-1)
+            disp_dict = {}
 
             labeled_mask = torch.nonzero(mask).squeeze(1).long()
             unlabeled_mask = torch.nonzero(1-mask).squeeze(1).long()
+            #
+            if self.no_data is not None:
+                if self.no_data == 'TL':
+                    labeled_mask = labeled_mask[:1]
+                elif self.no_data == 'TU':
+                    unlabeled_mask = unlabeled_mask[:0]
+                    self.unlabeled_supervise_refine = False
+                    self.unlabeled_supervise_cls = False
+                    self.unlabeled_supervise_box = False
+                elif self.no_data == 'SL':
+                    labeled_mask = labeled_mask[1:]
+                else:
+                    NotImplementedError('No timplement self.no_data')
+            #
             batch_dict_ema = {}
             keys = list(batch_dict.keys())
             for k in keys:
@@ -82,41 +100,38 @@ class CenterPoint_PointPillar_RCNNV2_SSL(Detector3DTemplateV2):
                 batch_dict_ema['has_class_labels'] = True
                 pred_dicts, recall_dicts = self.centerpoint_rcnn_ema.post_processing_for_roi_ssl_(batch_dict_ema)
 
-                if vis_flag:
-                    for batch in range(batch_dict_ema['gt_boxes'].squeeze(0).cpu().detach().numpy().shape[0]):
-                        if batch != 0:
-                            gt_=[]
-                            #for GT box visualization in forward 
-                            # where, xyz,lwh,heading
-                            gt_box = batch_dict_ema['gt_boxes'].squeeze(0).cpu().detach().numpy()[batch]
-                            #gt_box = [[gt_box[0][3], gt_box[0][4], gt_box[0][5]], gt_box[0][6], [gt_box[0][0], gt_box[0][1], gt_box[0][2]]] 
-                            points = batch_dict_ema['points'].cpu().detach().numpy() 
-                            pc_mask = (points[:, 0] == float(batch))
-                            points = points[pc_mask]
-                            np.save("/home/changwon/detection_task/SSOD/kakao/my_ssda_2/vis_in_model/pc/gt_{}.npy".format(batch_dict_ema['frame_id'][batch].item().split(".")[0]), points)
-                            file = open("/home/changwon/detection_task/SSOD/kakao/my_ssda_2/vis_in_model/box/gt_{}.txt".format(batch_dict_ema['frame_id'][batch].item().split(".")[0]), "w")
-                            with open("/home/changwon/detection_task/SSOD/kakao/my_ssda_2/vis_in_model/box/gt_{}.txt".format(batch_dict_ema['frame_id'][batch].item().split(".")[0]), "w") as f:
-                                for num in range(gt_box.shape[0]):
-                                    f.writelines("{},{},{},{},{},{},{},".format(gt_box[num][3],gt_box[num][4],gt_box[num][5],gt_box[num][6],gt_box[num][0],gt_box[num][1],gt_box[num][2]))
-                                    gt_.append([gt_box[num][3],gt_box[num][4],gt_box[num][5],gt_box[num][6],gt_box[num][0],gt_box[num][1],gt_box[num][2]])
-                            
-                            # pred_box = batch_dict_ema['batch_box_preds_roi'].squeeze(0).cpu().detach().numpy()[batch]
-                            # pred_box = pred_dicts[batch]['pred_boxes'].squeeze(0).cpu().detach().numpy()
-                            pred_box = batch_dict_ema['rois'][batch].squeeze(0).cpu().detach().numpy()
-                            with open("/home/changwon/detection_task/SSOD/kakao/my_ssda_2/vis_in_model/box/pred_{}.txt".format(batch_dict['frame_id'][batch].item().split(".")[0]), "w") as f:
-                                for num in range(pred_box.shape[0]):
-                                    f.writelines("{},{},{},{},{},{},{},".format(pred_box[num][3],pred_box[num][4],pred_box[num][5],pred_box[num][6],pred_box[num][0],pred_box[num][1],pred_box[num][2]))
-                                    gt_.append([pred_box[num][3],pred_box[num][4],pred_box[num][5],pred_box[num][6],pred_box[num][0],pred_box[num][1],pred_box[num][2]])
-                            #scene_viz(gt_box, points)
-                            #token = batch_dict['metadata'][0]['token']
-                            print(batch_dict_ema['frame_id'][batch].item().split(".")[0])
-
                 pseudo_boxes = []
                 pseudo_scores = []
                 pseudo_labels = []
                 max_box_num = batch_dict['gt_boxes'].shape[1]
                 max_pseudo_box_num = 0
                 batch_size = batch_dict['batch_size']
+                if self.use_adaptive_thres:
+                    # calculate if pred boxes match with gt boxes in labeled data
+                    C_THRES = torch.tensor([0.7, 0.7, 0.7, 0.5, 0.5]).cuda()
+                    ind = unlabeled_mask[0] - 1
+                    tl_num_gt = batch_dict_ema['gt_boxes'][ind].sum(1).nonzero().shape[0]
+                    tl_gt_boxes = batch_dict_ema['gt_boxes'][ind][:tl_num_gt]
+
+                    t_pred_boxes = pred_dicts[ind]['pred_boxes'].clone()
+                    t_pred_scores = pred_dicts[ind]['pred_scores'].clone()
+                    t_pred_labels = pred_dicts[ind]['pred_labels'].clone()
+                    
+                    if t_pred_boxes.shape[0] and tl_num_gt:
+                        pred_iou = iou3d_nms_utils.boxes_iou3d_gpu(t_pred_boxes[:, :7], 
+                                                                   tl_gt_boxes[:, :7])
+                        pred_thres = C_THRES[t_pred_labels - 1]
+                        pred_match = pred_iou.max(1)[0] >= pred_thres
+                        pred_res = []
+                        for cls in range(1, self.num_class + 1):
+                            c_inds = t_pred_labels == cls
+                            tc_boxes = t_pred_boxes[c_inds]
+                            tc_scores = t_pred_scores[c_inds]
+                            tc_labels = t_pred_labels[c_inds]
+                            tc_match = pred_match[c_inds]
+                            pred_res.append(torch.stack([tc_scores, tc_match]))
+                        disp_dict['ad_cls_pred'] = pred_res
+
                 for ind in unlabeled_mask:
 
                     pseudo_score = pred_dicts[ind]['pred_scores'].clone().detach()
@@ -255,18 +270,6 @@ class CenterPoint_PointPillar_RCNNV2_SSL(Detector3DTemplateV2):
                         pseudo_accs.append(ones)
                         pseudo_fgs.append(ones)
 
-            if False:
-                import cv2
-                print('max_pseudo_box_num: %d' % max_pseudo_box_num)
-                b_size = batch_dict['gt_boxes'].shape[0]
-                for b in range(b_size):
-                    points = batch_dict['points'][batch_dict['points'][:, 0] ==
-                                                  b][:, 1:4].cpu().numpy()
-                    gt_boxes = batch_dict['gt_boxes'][b].cpu().numpy().copy()
-                    gt_boxes[:, 6] = -gt_boxes[:, 6]
-                    det = nuscene_vis(points, gt_boxes)
-                    cv2.imwrite('test_%02d.png' % b, det)
-                breakpoint()
             for cur_module in self.centerpoint_rcnn.module_list:
                 if str(cur_module) == "BEVFeatureExtractorV2()" or str(cur_module) == "PVRCNNHead()":
                         pred_dicts, _ = self.post_processing_for_refine(batch_dict)
@@ -284,7 +287,6 @@ class CenterPoint_PointPillar_RCNNV2_SSL(Detector3DTemplateV2):
             batch_dict['has_class_labels'] = True
             pred_dicts, recall_dicts = self.post_processing_for_roi__(batch_dict)
 
-            disp_dict = {}
             loss_rpn_cls, loss_rpn_box, tb_dict = self.centerpoint_rcnn.dense_head.get_loss_ssl(scalar=False)
             loss_rcnn_cls, loss_rcnn_box, tb_dict = self.centerpoint_rcnn.roi_head.get_loss(tb_dict, scalar=False)
 
@@ -332,7 +334,9 @@ class CenterPoint_PointPillar_RCNNV2_SSL(Detector3DTemplateV2):
         else:
             for cur_module in self.centerpoint_rcnn.module_list:
                 if str(cur_module) == "BEVFeatureExtractorV2()" or str(cur_module) == "PVRCNNHead()":
-                    pred_dicts, _ = self.post_processing_for_refine(batch_dict)
+                    pred_dicts, recall_dicts = self.post_processing_for_refine(batch_dict)
+                    if not self.training:
+                        break
                     rois, roi_scores, roi_labels = self.reorder_rois_for_refining(batch_dict['batch_size'], pred_dicts)
                     batch_dict['rois'] = rois
                     batch_dict['roi_scores'] = roi_scores
@@ -344,13 +348,14 @@ class CenterPoint_PointPillar_RCNNV2_SSL(Detector3DTemplateV2):
                     batch_dict['has_class_labels_onestage'] = True
                 batch_dict = cur_module(batch_dict)
 
-            pred_dicts = self.post_process(batch_dict) #test 1025
-            rois, roi_scores, roi_labels = self.reorder_rois_for_refining(batch_dict['batch_size'], pred_dicts)
-            batch_dict['rois'] = rois
-            batch_dict['roi_labels'] = roi_labels
-            batch_dict['has_class_labels'] = True
-            #  pred_dicts, recall_dicts = self.post_processing_for_roi__(batch_dict)
-            pred_dicts, recall_dicts = self.post_processing_for_roi_onestage(batch_dict) # one - stage result
+            if False:
+                pred_dicts = self.post_process(batch_dict) #test 1025
+                rois, roi_scores, roi_labels = self.reorder_rois_for_refining(batch_dict['batch_size'], pred_dicts)
+                batch_dict['rois'] = rois
+                batch_dict['roi_labels'] = roi_labels
+                batch_dict['has_class_labels'] = True
+                #  pred_dicts, recall_dicts = self.post_processing_for_roi__(batch_dict)
+                pred_dicts, recall_dicts = self.post_processing_for_roi_onestage(batch_dict) # one - stage result
 
             return pred_dicts, recall_dicts, {}
 

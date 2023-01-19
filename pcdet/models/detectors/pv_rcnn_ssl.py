@@ -43,6 +43,7 @@ class PVRCNN_SSL(Detector3DTemplate):
         self.no_nms = model_cfg.NO_NMS
         self.supervise_mode = model_cfg.SUPERVISE_MODE
         self.no_data = model_cfg.get('NO_DATA', None)
+        self.use_adaptive_thres = model_cfg.get('USE_ADAPTIVE_THRES', False)
         self.adaptive_thres = model_cfg.get('ADAPTIVE_THRES', False)
 
     def forward(self, batch_dict):
@@ -107,7 +108,7 @@ class PVRCNN_SSL(Detector3DTemplate):
                 pseudo_labels = []
                 max_box_num = batch_dict['gt_boxes'].shape[1]
                 max_pseudo_box_num = 0
-                if self.adaptive_thres:
+                if self.use_adaptive_thres:
                     # calculate if pred boxes match with gt boxes in labeled data
                     C_THRES = torch.tensor([0.7, 0.7, 0.7, 0.5, 0.5]).cuda()
                     ind = unlabeled_mask[0] - 1
@@ -118,19 +119,20 @@ class PVRCNN_SSL(Detector3DTemplate):
                     t_pred_scores = pred_dicts[ind]['pred_scores'].clone()
                     t_pred_labels = pred_dicts[ind]['pred_labels'].clone()
                     
-                    pred_iou = iou3d_nms_utils.boxes_iou3d_gpu(t_pred_boxes[:, :7], 
-                                                               tl_gt_boxes[:, :7])
-                    pred_thres = C_THRES[t_pred_labels - 1]
-                    pred_match = pred_iou.max(1)[0] >= pred_thres
-                    pred_res = []
-                    for cls in range(1, self.num_class + 1):
-                        c_inds = t_pred_labels == cls
-                        tc_boxes = t_pred_boxes[c_inds]
-                        tc_scores = t_pred_scores[c_inds]
-                        tc_labels = t_pred_labels[c_inds]
-                        tc_match = pred_match[c_inds]
-                        pred_res.append(torch.stack([tc_scores, tc_match]))
-                    disp_dict['cls_pred'] = pred_res
+                    if t_pred_boxes.shape[0] and tl_num_gt:
+                        pred_iou = iou3d_nms_utils.boxes_iou3d_gpu(t_pred_boxes[:, :7], 
+                                                                   tl_gt_boxes[:, :7])
+                        pred_thres = C_THRES[t_pred_labels - 1]
+                        pred_match = pred_iou.max(1)[0] >= pred_thres
+                        pred_res = []
+                        for cls in range(1, self.num_class + 1):
+                            c_inds = t_pred_labels == cls
+                            tc_boxes = t_pred_boxes[c_inds]
+                            tc_scores = t_pred_scores[c_inds]
+                            tc_labels = t_pred_labels[c_inds]
+                            tc_match = pred_match[c_inds]
+                            pred_res.append(torch.stack([tc_scores, tc_match]))
+                        disp_dict['ad_cls_pred'] = pred_res
 
                 for ind in unlabeled_mask:
                     pseudo_score = pred_dicts[ind]['pred_scores']

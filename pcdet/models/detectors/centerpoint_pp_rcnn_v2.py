@@ -8,6 +8,7 @@ class CenterPoint_PointPillar_RCNNV2(Detector3DTemplateV2):
         super().__init__(model_cfg=model_cfg, num_class=num_class, dataset=dataset)
         self.module_list = self.build_networks()
         self.use_local_alignment = self.model_cfg.get('USE_LOCAL_ALIGNMENT', False)
+        self.use_adaptive_thres = model_cfg.get('USE_ADAPTIVE_THRES', False)
         if self.use_local_alignment:
             self.dla_cfg = self.model_cfg.get('DLA_CONFIG', None)
             self.dla_model = Net_MDA()
@@ -19,7 +20,9 @@ class CenterPoint_PointPillar_RCNNV2(Detector3DTemplateV2):
             if only_domain_loss and idx == 3:
                 break
             if str(cur_module) == "BEVFeatureExtractorV2()" or str(cur_module) == "PVRCNNHead()":
-                pred_dicts, _ = self.post_processing_for_refine(batch_dict)
+                pred_dicts, recall_dicts = self.post_processing_for_refine(batch_dict)
+                if not self.training:
+                    break
                 rois, roi_scores, roi_labels = self.reorder_rois_for_refining(batch_dict['batch_size'], pred_dicts)
                 batch_dict['rois'] = rois
                 batch_dict['roi_scores'] = roi_scores
@@ -36,12 +39,13 @@ class CenterPoint_PointPillar_RCNNV2(Detector3DTemplateV2):
             }
             return ret_dict, tb_dict, disp_dict
         else:
-            pred_dicts = self.post_process(batch_dict)
-            rois, roi_scores, roi_labels = self.reorder_rois_for_refining(batch_dict['batch_size'], pred_dicts)
-            batch_dict['rois'] = rois
-            batch_dict['roi_labels'] = roi_labels
-            batch_dict['has_class_labels'] = True
-            pred_dicts, recall_dicts = self.post_processing_for_roi__(batch_dict)
+            if False:
+                pred_dicts = self.post_process(batch_dict)
+                rois, roi_scores, roi_labels = self.reorder_rois_for_refining(batch_dict['batch_size'], pred_dicts)
+                batch_dict['rois'] = rois
+                batch_dict['roi_labels'] = roi_labels
+                batch_dict['has_class_labels'] = True
+                pred_dicts, recall_dicts = self.post_processing_for_roi__(batch_dict)
 
             return pred_dicts, recall_dicts
 

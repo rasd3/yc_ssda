@@ -22,6 +22,7 @@ class PVRCNN(Detector3DTemplate):
         self.module_list = self.build_networks()
         # Domain Local Alignment 
         self.use_local_alignment = self.model_cfg.get('USE_LOCAL_ALIGNMENT', False)
+        self.use_adaptive_thres = model_cfg.get('USE_ADAPTIVE_THRES', False)
         if self.use_local_alignment:
             self.dla_cfg = self.model_cfg.get('DLA_CONFIG', None)
             self.dla_model = Net_MDA()
