@@ -69,6 +69,10 @@ class DetectionOmegaEval(DetectionEval):
         self.cfg = config
         self.use_smAP = use_smAP
 
+        # Exclude nuscenes only calsses
+        for cls_name in ['construction_vehicle', 'trailer', 'traffic_cone', 'barrier', 'bicycle']:
+            del(self.cfg.class_range[cls_name])
+
         # Check result file exists.
         assert os.path.exists(
             result_path), 'Error: The result file does not exist!'

@@ -335,8 +335,7 @@ class CenterPoint_PointPillar_RCNNV2_SSL(Detector3DTemplateV2):
             for cur_module in self.centerpoint_rcnn.module_list:
                 if str(cur_module) == "BEVFeatureExtractorV2()" or str(cur_module) == "PVRCNNHead()":
                     pred_dicts, recall_dicts = self.post_processing_for_refine(batch_dict)
-                    if not self.training:
-                        break
+                    break
                     rois, roi_scores, roi_labels = self.reorder_rois_for_refining(batch_dict['batch_size'], pred_dicts)
                     batch_dict['rois'] = rois
                     batch_dict['roi_scores'] = roi_scores

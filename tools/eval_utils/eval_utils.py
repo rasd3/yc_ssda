@@ -53,7 +53,6 @@ def eval_one_epoch(cfg, model, dataloader, epoch_id, logger, dist_test=False, sa
     if cfg.OPTIMIZATION.get('DSNORM', None):
         model.apply(set_ds_target)
 
-    inf_time = 0
     if False: #osp.isfile(result_dir / 'result.pkl'):
         with open(result_dir / 'result.pkl', 'rb') as f:
             det_annos = pickle.load(f)
@@ -73,9 +72,6 @@ def eval_one_epoch(cfg, model, dataloader, epoch_id, logger, dist_test=False, sa
                 else:
                     raise NotImplementedError
                 #  pred_dicts, ret_dict, tb_dict = model(batch_dict)
-            if i > 2:
-                inf_time += (time.time() - st)
-                print('inf time: %.3f' % (inf_time / (i-2)))
                 
             disp_dict = {}
 

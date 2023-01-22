@@ -7,20 +7,19 @@ DATA_CONFIG:
     VERSION: 'v0.5-omega-trainval'
     SHIFT_COOR: [0.0, 0.0, -1.8]
     MAX_SWEEPS: 1
-    REPEAT: 10
+    REPEAT: 5
     PRED_VELOCITY: False
     BALANCED_RESAMPLING: True #False
 
     INFO_PATH: {
-        'train': [omega_infos_1sweeps_train_train_0.05_1.pkl],
-        'test': [omega_infos_1sweeps_val_train_0.05_1.pkl], #[omega_infos_1sweeps_train_train_test.pkl],
+        'train': [omega_infos_1sweeps_train_train_0.10_2.pkl],
+        'test': [omega_infos_1sweeps_val_train_0.10_2.pkl],
     }
     POINT_CLOUD_RANGE: [-51.2, -51.2, -5.0, 51.2, 51.2, 3.0]
 
     POINT_FEATURE_ENCODING: {
         encoding_type: absolute_coordinates_encoding,
-        # used_feature_list: ['x', 'y', 'z'],
-        used_feature_list: ['x', 'y', 'z', 'intensity', 'timestamp'],
+        used_feature_list: ['x', 'y', 'z'],
         src_feature_list: ['x', 'y', 'z', 'intensity', 'timestamp'],
     }
 
@@ -29,7 +28,7 @@ DATA_CONFIG:
         AUG_CONFIG_LIST:
             - NAME: gt_sampling
               DB_INFO_PATH:
-                - omega_dbinfos_1sweeps_train_0.05_1.pkl
+                - omega_dbinfos_1sweeps_train_0.10_2.pkl
               PREPARE: {
                 filter_by_min_points: [
                     'car:20','truck:20', 'bus:20',
@@ -51,10 +50,10 @@ DATA_CONFIG:
               ALONG_AXIS_LIST: ['x', 'y']
 
             - NAME: random_world_rotation
-              WORLD_ROT_ANGLE: [-0.78539816, 0.78539816]
+              WORLD_ROT_ANGLE: [-0.3925, 0.3925]
 
             - NAME: random_world_scaling
-              WORLD_SCALE_RANGE: [0.95, 1.1]
+              WORLD_SCALE_RANGE: [0.95, 1.05]
             
             - NAME: random_world_translation
               NOISE_TRANSLATE_STD: 0.5
@@ -95,7 +94,7 @@ MODEL:
         LAYER_NUMS: [3, 5, 5]
         LAYER_STRIDES: [2, 2, 2] # pcdet : [2, 2, 2] ori : [1, 2, 2]
         NUM_FILTERS: [64, 128, 256]
-        UPSAMPLE_STRIDES: [1, 2, 4] # pcdet : [0.5, 1, 2], ori : [1, 2, 4]
+        UPSAMPLE_STRIDES: [0.5, 1, 2] # pcdet : [0.5, 1, 2], ori : [1, 2, 4]
         NUM_UPSAMPLE_FILTERS: [128, 128, 128]
 
     DENSE_HEAD:
@@ -112,7 +111,7 @@ MODEL:
             #VOXEL_SIZE: [0.05, 0.05, 0.1] #kitti
             # VOXEL_SIZE: [0.32, 0.32, 6.0]
             VOXEL_SIZE: [0.2, 0.2, 8.0] #nuscenes
-            OUT_SIZE_FACTOR: 2 #4 
+            OUT_SIZE_FACTOR: 4 
             GAUSSIAN_OVERLAP: 0.1
             MIN_RADIUS: 2
             BOX_CODER: ResidualCoder

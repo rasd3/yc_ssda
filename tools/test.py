@@ -37,6 +37,7 @@ def parse_config():
     parser.add_argument('--eval_all', action='store_true', default=False, help='whether to evaluate all checkpoints')
     parser.add_argument('--ckpt_dir', type=str, default=None, help='specify a ckpt directory to be evaluated if needed')
     parser.add_argument('--save_to_file', action='store_true', default=False, help='')
+    parser.add_argument('--eval_metric', choices=['kitti', 'nuscenes'], default='none', help='evaluation metric for da cfg')
 
     args = parser.parse_args()
 
@@ -147,6 +148,9 @@ def main():
     else:
         assert args.batch_size % total_gpus == 0, 'Batch size should match the number of gpus'
         args.batch_size = args.batch_size // total_gpus
+
+    if args.eval_metric != 'none':
+        cfg.MODEL.POST_PROCESSING.EVAL_METRIC = args.eval_metric
 
     output_dir = cfg.ROOT_DIR / 'output' / cfg.EXP_GROUP_PATH / cfg.TAG / args.extra_tag
     output_dir.mkdir(parents=True, exist_ok=True)

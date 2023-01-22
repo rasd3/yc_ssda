@@ -27,10 +27,13 @@ def train_one_epoch(model, optimizer, train_loader, model_func, lr_scheduler, ac
         'total_it_each_epoch': total_it_each_epoch,
     }
 
-    dist_train = False
     if type(model) == torch.nn.parallel.distributed.DistributedDataParallel:
+        ch_model = model.module
         dist_train = True
-    num_class = model.module.num_class if dist_train else model.num_class
+    else:
+        ch_model = model
+        dist_train = False
+    num_class = ch_model.num_class
     pseudo_match_cls = [torch.zeros((2, 0)).cuda() for _ in range(num_class)]
     for cur_it in range(total_it_each_epoch):
         try:
@@ -84,10 +87,10 @@ def train_one_epoch(model, optimizer, train_loader, model_func, lr_scheduler, ac
                     # print(key, val)
                     tb_log.add_scalar('train/' + key, val, accumulated_iter)
 
-    adaptive_thres_flag = model.module.use_adaptive_thres if dist_train else model.use_adaptive_thres
+    adaptive_thres_flag = ch_model.use_adaptive_thres if hasattr(ch_model, 'use_adaptive_thres') else False
     if adaptive_thres_flag:
-        a_thres = model.module.adaptive_thres if dist_train else model.adaptive_thres
-        u_thres = model.module.thresh if dist_train else model.thresh
+        a_thres = ch_model.adaptive_thres
+        u_thres = ch_model.thresh
         for cls in range(num_class):
             num_pred = pseudo_match_cls[cls].shape[1]
 
@@ -112,10 +115,7 @@ def train_one_epoch(model, optimizer, train_loader, model_func, lr_scheduler, ac
             u_thres = u_thres.cpu().tolist()
         print('Adaptive Threshold :', u_thres)
 
-        if type(model) == torch.nn.parallel.distributed.DistributedDataParallel:
-            model.module.thresh = u_thres
-        else:
-            model.thresh = u_thres
+        ch_model.thresh = u_thres
 
     if rank == 0:
         pbar.close()

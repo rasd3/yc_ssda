@@ -16,6 +16,12 @@ DATA_CONFIG:
         'test': [omega_infos_1sweeps_val_train_0.05_1.pkl], #[omega_infos_1sweeps_train_train_test.pkl],
     }
     POINT_CLOUD_RANGE: [-51.2, -51.2, -5.0, 51.2, 51.2, 3.0]
+    POINT_FEATURE_ENCODING: {
+        encoding_type: absolute_coordinates_encoding,
+        # used_feature_list: ['x', 'y', 'z'],
+        used_feature_list: ['x', 'y', 'z', 'intensity', 'timestamp'],
+        src_feature_list: ['x', 'y', 'z', 'intensity', 'timestamp'],
+    }
 
     DATA_AUGMENTOR:
         DISABLE_AUG_LIST: ['placeholder', 'gt_sampling']

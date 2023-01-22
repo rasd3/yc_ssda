@@ -12,6 +12,7 @@ from ...ops.roiaware_pool3d import roiaware_pool3d_utils
 from ...utils import common_utils
 from ..dataset import DatasetTemplate
 from ..nuscenes.nuscenes_dataset_ssl import NuScenesDatasetSSL
+from .omega_dataset import NuScenesOmegaEval
 
 
 class OmegaDatasetSSL(NuScenesDatasetSSL):
@@ -402,12 +403,26 @@ class OmegaDatasetSSL(NuScenesDatasetSSL):
         return ap_result_str, ap_dict
 
 
+
+    def evaluation(self, det_annos, class_names, **kwargs):
+        if kwargs['eval_metric'] == 'kitti':
+            eval_det_annos = copy.deepcopy(det_annos)
+            eval_gt_annos = copy.deepcopy(self.labeled_infos)
+            return self.kitti_eval(eval_det_annos, eval_gt_annos, class_names)
+        elif kwargs['eval_metric'] == 'nuscenes':
+            return self.nuscene_eval(det_annos, class_names, **kwargs)
+        else:
+            raise NotImplementedError
+
     def nuscene_eval(self, det_annos, class_names, **kwargs):
         import json
         from nuscenes.nuscenes import NuScenes
-        from . import nuscenes_utils
-        nusc = NuScenes(version=self.dataset_cfg.VERSION, dataroot=str(self.root_path), verbose=True)
-        nusc_annos = nuscenes_utils.transform_det_annos_to_nusc_annos(det_annos, nusc)
+        from . import omega_utils
+        nusc = NuScenes(version=self.dataset_cfg.VERSION,
+                        dataroot=str(self.root_path),
+                        verbose=True)
+        nusc_annos = omega_utils.transform_det_annos_to_nusc_annos(
+            det_annos, nusc)
         nusc_annos['meta'] = {
             'use_camera': False,
             'use_lidar': True,
@@ -422,7 +437,8 @@ class OmegaDatasetSSL(NuScenesDatasetSSL):
         with open(res_path, 'w') as f:
             json.dump(nusc_annos, f)
 
-        self.logger.info(f'The predictions of NuScenes have been saved to {res_path}')
+        self.logger.info(
+            f'The predictions of NuScenes have been saved to {res_path}')
 
         if self.dataset_cfg.VERSION == 'v1.0-test':
             return 'No ground-truth annotations for evaluation', {}
@@ -433,6 +449,7 @@ class OmegaDatasetSSL(NuScenesDatasetSSL):
         eval_set_map = {
             'v1.0-mini': 'mini_val',
             'v1.0-trainval': 'val',
+            'v0.5-omega-trainval': 'val',
             'v1.0-test': 'test'
         }
         try:
@@ -442,7 +459,7 @@ class OmegaDatasetSSL(NuScenesDatasetSSL):
             eval_version = 'cvpr_2019'
             eval_config = config_factory(eval_version)
 
-        nusc_eval = NuScenesEval(
+        nusc_eval = NuScenesOmegaEval(
             nusc,
             config=eval_config,
             result_path=res_path,
@@ -455,18 +472,9 @@ class OmegaDatasetSSL(NuScenesDatasetSSL):
         with open(output_path / 'metrics_summary.json', 'r') as f:
             metrics = json.load(f)
 
-        result_str, result_dict = nuscenes_utils.format_nuscene_results(metrics, self.class_names, version=eval_version)
+        result_str, result_dict = omega_utils.format_omega_results(
+            metrics, self.class_names, version=eval_version)
         return result_str, result_dict
-
-    def evaluation(self, det_annos, class_names, **kwargs):
-        if kwargs['eval_metric'] == 'kitti':
-            eval_det_annos = copy.deepcopy(det_annos)
-            eval_gt_annos = copy.deepcopy(self.labeled_infos)
-            return self.kitti_eval(eval_det_annos, eval_gt_annos, class_names)
-        elif kwargs['eval_metric'] == 'nuscenes':
-            return self.nuscene_eval(det_annos, class_names, **kwargs)
-        else:
-            raise NotImplementedError
 
     def create_groundtruth_database(self, used_classes=None, max_sweeps=10, split='xxx'):
         import torch
