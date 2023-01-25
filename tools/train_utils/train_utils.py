@@ -91,6 +91,11 @@ def train_one_epoch(model, optimizer, train_loader, model_func, lr_scheduler, ac
     if adaptive_thres_flag:
         a_thres = ch_model.adaptive_thres
         u_thres = ch_model.thresh
+        hybrid_thres_flag = ch_model.use_hybrid_thres
+        rel_adaptive_thres = ch_model.rel_adaptive_thres
+        abs_thres = ch_model.absolute_thres
+        
+        perc_pl_list = []
         for cls in range(num_class):
             num_pred = pseudo_match_cls[cls].shape[1]
 
@@ -103,6 +108,23 @@ def train_one_epoch(model, optimizer, train_loader, model_func, lr_scheduler, ac
             if (match_cum > a_thres).sum():
                 c_thres = pseudo_match_cls[cls][0][(match_cum > a_thres).nonzero()[-1][0]]
                 u_thres[cls] = c_thres.cpu().item()
+            if hybrid_thres_flag:
+                if rel_adaptive_thres:
+                    n_pl = pseudo_match_cls[cls][0].shape[0]
+                    u_num = int(n_pl * rel_adaptive_thres[0])
+                    l_num = int(n_pl * rel_adaptive_thres[1])
+                    up_thres, low_thres = pseudo_match_cls[cls][0][u_num], pseudo_match_cls[cls][0][l_num]
+                    if u_thres[cls] < low_thres:
+                        u_thres[cls] = low_thres
+                    if u_thres[cls] > up_thres:
+                        u_thres[cls] = up_thres
+                elif u_thres[cls] < abs_thres[cls]:
+                    u_thres[cls] = abs_thres[cls]
+
+            num_pl = (pseudo_match_cls[cls][0] > u_thres[cls]).sum()
+            perc_pl = num_pl / (pseudo_match_cls[cls][0].shape[0])
+            perc_pl_list.append(perc_pl.item())
+
 
         if dist_train:
             # average dist u_thres
@@ -113,6 +135,7 @@ def train_one_epoch(model, optimizer, train_loader, model_func, lr_scheduler, ac
             dist.all_reduce(u_thres, op=dist.ReduceOp.SUM, group=group)
             u_thres = u_thres / world_size
             u_thres = u_thres.cpu().tolist()
+        print('PL Percent:', perc_pl_list)
         print('Adaptive Threshold :', u_thres)
 
         ch_model.thresh = u_thres

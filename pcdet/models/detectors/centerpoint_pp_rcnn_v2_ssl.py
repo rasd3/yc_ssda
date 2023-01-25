@@ -31,9 +31,13 @@ class CenterPoint_PointPillar_RCNNV2_SSL(Detector3DTemplateV2):
         self.unlabeled_weight = model_cfg.UNLABELED_WEIGHT
         self.no_nms = model_cfg.NO_NMS
         self.supervise_mode = model_cfg.SUPERVISE_MODE
-        self.use_adaptive_thres = model_cfg.get('USE_ADAPTIVE_THRES', False)
-        self.adaptive_thres = model_cfg.get('ADAPTIVE_THRES', False)
         self.no_data = model_cfg.get('NO_DATA', None)
+        # adaptive threshold
+        self.use_adaptive_thres = model_cfg.get('USE_ADAPTIVE_THRES', False)
+        self.use_hybrid_thres = model_cfg.get('USE_HYBRID_THRES', False)
+        self.adaptive_thres = model_cfg.get('ADAPTIVE_THRES', False)
+        self.rel_adaptive_thres = model_cfg.get('REL_ADAPTIVE_THRES', False)
+        self.absolute_thres = copy.deepcopy(self.thresh)
 
     def forward(self, batch_dict):
         if False:
@@ -116,6 +120,10 @@ class CenterPoint_PointPillar_RCNNV2_SSL(Detector3DTemplateV2):
                     t_pred_boxes = pred_dicts[ind]['pred_boxes'].clone()
                     t_pred_scores = pred_dicts[ind]['pred_scores'].clone()
                     t_pred_labels = pred_dicts[ind]['pred_labels'].clone()
+                    l_mask = t_pred_scores > 0.1
+                    t_pred_boxes = t_pred_boxes[l_mask]
+                    t_pred_scores = t_pred_scores[l_mask]
+                    t_pred_labels = t_pred_labels[l_mask]
                     
                     if t_pred_boxes.shape[0] and tl_num_gt:
                         pred_iou = iou3d_nms_utils.boxes_iou3d_gpu(t_pred_boxes[:, :7], 
