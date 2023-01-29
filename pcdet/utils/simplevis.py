@@ -169,7 +169,8 @@ def draw_box_in_bev(img,
     text_center[:, 1] -= (standup[:, 3] - standup[:, 1]) / 2
 
     bev_lines = np.concatenate(
-        [bev_corners[:, [0, 2, 3]], bev_corners[:, [1, 3, 0]]], axis=2)
+        [bev_corners[:, [0, 2, 3, 1]], bev_corners[:, [1, 3, 0, 2]]], axis=2)
+        #  [bev_corners[:, [0, 2, 3]], bev_corners[:, [1, 3, 0]]], axis=2)
     bev_lines = bev_lines.reshape(-1, 4)
     colors = np.tile(np.array(color).reshape(1, 3), [bev_lines.shape[0], 1])
     colors = colors.astype(np.int32)
@@ -218,11 +219,14 @@ def kitti_vis(points, boxes=None, labels=None):
     return bev_map
 
 
-def nuscene_vis(points, boxes=None, labels=None):
+def nuscene_vis(points, boxes=None, labels=None, gt_boxes=None):
     vis_voxel_size = [0.1, 0.1, 0.2]
     vis_point_range = [-51.2, -51.2, -5, 51.2, 51.2, 3]
     bev_map = point_to_vis_bev(points, vis_voxel_size, vis_point_range)
     if boxes is not None:
+        if gt_boxes is not None:
+            bev_map = draw_box_in_bev(bev_map, vis_point_range, gt_boxes, [0, 0, 255],
+                                      2, labels)
         bev_map = draw_box_in_bev(bev_map, vis_point_range, boxes, [0, 255, 0],
                                   2, labels)
 

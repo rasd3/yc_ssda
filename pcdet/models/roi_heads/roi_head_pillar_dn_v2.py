@@ -24,9 +24,7 @@ class RoIHeadDynamicPillarV2(RoIHeadTemplate_CenterPoint_PointPillar):
         self.code_size = code_size
         self.add_box_param = add_box_param
 
-        # pre_channel = 384 #input_channels
-        pre_channel = 1920 #input_channels #for dynpillar
-        #pre_channel = 1280 #for pillarnet
+        pre_channel = model_cfg.get('PRE_CHANNEL', 1920)
 
         shared_fc_list = []
         for k in range(0, self.model_cfg.SHARED_FC.__len__()):

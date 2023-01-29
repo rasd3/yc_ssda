@@ -13,6 +13,7 @@ work_dirs/
 output/
 demo/
 model_zoo/
+model_demo/
 gt_database*
 
 # for ImageSets
