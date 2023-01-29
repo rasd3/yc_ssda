@@ -69,7 +69,7 @@ def parse_config():
 
     cfg.DATA_CONFIG.DATA_SPLIT['train'] = args.split
     #  assert cfg.DATA_CONFIG.DATA_AUGMENTOR.AUG_CONFIG_LIST[0].NAME == 'gt_sampling'  # hardcode
-    #  cfg.DATA_CONFIG.DATA_AUGMENTOR.AUG_CONFIG_LIST[0].DB_INFO_PATH = [args.dbinfos]
+    cfg.DATA_CONFIG.DATA_AUGMENTOR.AUG_CONFIG_LIST[0].DB_INFO_PATH = [args.dbinfos]
     if args.repeat is not None:
         cfg.DATA_CONFIG.REPEAT = args.repeat
 
