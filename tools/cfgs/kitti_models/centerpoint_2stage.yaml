@@ -181,12 +181,12 @@ MODEL:
 
 
 OPTIMIZATION:
-    BATCH_SIZE_PER_GPU: 2 #sever : 10 #conv 8
+    BATCH_SIZE_PER_GPU: 8 #sever : 10 #conv 8
     EVAL_BATCH_SIZE_PER_GPU: 8 #sever : 10 #conv 8
-    NUM_EPOCHS: 20
+    NUM_EPOCHS: 80
 
     OPTIMIZER: adam_onecycle
-    LR: 0.003
+    LR: 0.001
     WEIGHT_DECAY: 0.01
     MOMENTUM: 0.9
 

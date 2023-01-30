@@ -15,7 +15,7 @@ DATA_CONFIG:
         AUG_CONFIG_LIST:
             - NAME: gt_sampling
               DB_INFO_PATH:
-                  - nuscenes_dbinfos_10sweeps_train_0.25_1.pkl
+                  - nuscenes_dbinfos_10sweeps.pkl
               PREPARE: {
                  filter_by_min_points: [
                      'car:5','truck:5', 'construction_vehicle:5', 'bus:5', 'trailer:5',
@@ -192,12 +192,12 @@ MODEL:
 
 
 OPTIMIZATION:
-    BATCH_SIZE_PER_GPU: 2 #sever : 10 #conv 8
+    BATCH_SIZE_PER_GPU: 8 #sever : 10 #conv 8
     EVAL_BATCH_SIZE_PER_GPU: 8 #sever : 10 #conv 8
     NUM_EPOCHS: 20
 
     OPTIMIZER: adam_onecycle
-    LR: 0.003
+    LR: 0.001
     WEIGHT_DECAY: 0.01
     MOMENTUM: 0.9
 

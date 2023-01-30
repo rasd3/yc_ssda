@@ -56,7 +56,7 @@ def parse_config():
 
     parser.add_argument('--no_nms', action='store_true', default=False)
     parser.add_argument('--supervise_mode', type=int, default=0)
-    parser.add_argument('--dbinfos', type=str, default='kitti_dbinfos_train.pkl')
+    parser.add_argument('--dbinfos', type=str, default=None)
 
     args = parser.parse_args()
 
@@ -69,7 +69,8 @@ def parse_config():
 
     cfg.DATA_CONFIG.DATA_SPLIT['train'] = args.split
     #  assert cfg.DATA_CONFIG.DATA_AUGMENTOR.AUG_CONFIG_LIST[0].NAME == 'gt_sampling'  # hardcode
-    cfg.DATA_CONFIG.DATA_AUGMENTOR.AUG_CONFIG_LIST[0].DB_INFO_PATH = [args.dbinfos]
+    if args.dbinfos is not None:
+        cfg.DATA_CONFIG.DATA_AUGMENTOR.AUG_CONFIG_LIST[0].DB_INFO_PATH = [args.dbinfos]
     if args.repeat is not None:
         cfg.DATA_CONFIG.REPEAT = args.repeat
 
