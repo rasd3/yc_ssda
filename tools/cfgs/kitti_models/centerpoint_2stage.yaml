@@ -46,7 +46,7 @@ DATA_CONFIG:
           VOXEL_SIZE: [0.075, 0.075, 0.2] #nuscenes
           MAX_POINTS_PER_VOXEL: 10
           MAX_NUMBER_OF_VOXELS: {
-            'train': 16000,
+            'train': 30000,
             'test': 40000
           }
           

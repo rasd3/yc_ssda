@@ -128,7 +128,7 @@ MODEL:
         PC_START: [-51.2, -51.2]
         # VOXEL_SIZE: [0.32, 0.32] #[0.075, 0.075, 0.2]
         VOXEL_SIZE: [0.2, 0.2] #nuscenes
-        OUT_STRIDE: 1
+        OUT_STRIDE: 4
         NUM_POINT : 5
 
     ROI_HEAD:
