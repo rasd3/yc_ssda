@@ -214,8 +214,8 @@ def train_one_epoch_dann(model, optimizer, train_loader, model_func, lr_schedule
             if not retain_graph:
                 optimizer.zero_grad()
             trg_d_loss, trg_tb_dict, trg_disp_dict = model_func(model, trg_batch)
-            trg_d_loss.backward(retain_graph=(retain_graph and use_mgfa))
             if not retain_graph and not use_mgfa:
+                trg_d_loss.backward()
                 clip_grad_norm_(model.parameters(), optim_cfg.GRAD_NORM_CLIP)
                 optimizer.step()
             if 'domain_cls_loss' in trg_tb_dict:
@@ -252,12 +252,12 @@ def train_one_epoch_dann(model, optimizer, train_loader, model_func, lr_schedule
             disp_dict.pop('mgfa_feats')
             trg_disp_dict.pop('mgfa_feats')
             for idx in range(len(src_mgfa_feats)):
-                loss_mgfa_i = 1 * mmd.mix_rbf_mmd2(src_mgfa_feats[idx], 
-                                                   trg_mgfa_feats[idx],
-                                                   sigma_list)
+                loss_mgfa_i = mmd.mix_rbf_mmd2(src_mgfa_feats[idx], 
+                                               trg_mgfa_feats[idx],
+                                               sigma_list)
                 loss_mgfa = loss_mgfa + loss_mgfa_i
-            loss_mgfa = loss_mgfa / len(src_mgfa_feats)
-            loss_mgfa.backward()
+            loss_mgfa_sum = loss_mgfa / len(src_mgfa_feats) + trg_d_loss
+            loss_mgfa_sum.backward()
             optimizer.step()
 
         accumulated_iter += 1
