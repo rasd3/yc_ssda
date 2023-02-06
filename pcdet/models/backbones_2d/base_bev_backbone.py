@@ -101,6 +101,7 @@ class BaseBEVBackbone(nn.Module):
         self.use_domain_cls = self.model_cfg.get('USE_DOMAIN_CLASSIFIER',
                                                  False)
         self.dc_version = self.model_cfg.get('DC_VERSION', None)
+        self.mgfa = self.model_cfg.get('MGFA', False)
         if self.use_domain_cls:
             self.domain_data_split = False
             self.domain_data_trg = False
@@ -114,6 +115,18 @@ class BaseBEVBackbone(nn.Module):
                 raise NotImplementedError('specify implemented loss name')
 
             self.forward_ret_dict = {}
+        if self.mgfa:
+            self.mgfa_proj = []
+            self.mgfa_pool = []
+            ch_in = num_filters + [c_in]
+            for ch in ch_in:
+                self.mgfa_pool.append(nn.AdaptiveAvgPool2d(1).cuda())
+                m_seq = nn.Sequential(nn.Linear(ch, ch*2),
+                                      nn.BatchNorm1d(ch*2),
+                                      nn.ReLU(),
+                                      nn.Linear(ch*2, ch))
+                self.mgfa_proj.append(m_seq.cuda())
+
 
     def get_loss(self, tb_dict=None):
         batch_size = self.batch_size
@@ -195,6 +208,7 @@ class BaseBEVBackbone(nn.Module):
             x = self.deblocks[-1](x)
 
         data_dict['spatial_features_2d'] = x
+        ret_dict['spatial_features_2d'] = x
         if self.use_domain_cls and 'cur_train_meta' in data_dict:
             # from DANN
             iter_meta = data_dict['cur_train_meta']
@@ -217,5 +231,14 @@ class BaseBEVBackbone(nn.Module):
                 self.remove_trg_data(data_dict)
             else:
                 self.domain_data_split = True
+        if self.mgfa:
+            feat_names = ['spatial_features_1x', 'spatial_features_2x', 'spatial_features_2d']
+            mgfa_proj_feats = []
+            for idx, feat_name in enumerate(feat_names):
+                mgfa_feat = ret_dict[feat_name]
+                mgfa_feat = self.mgfa_pool[idx](mgfa_feat).view(mgfa_feat.size(0), -1)
+                mgfa_feat = self.mgfa_proj[idx](mgfa_feat)
+                mgfa_proj_feats.append(mgfa_feat)
+            data_dict['mgfa_feats'] = mgfa_proj_feats
 
         return data_dict

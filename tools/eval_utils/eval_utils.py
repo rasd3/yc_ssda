@@ -53,8 +53,9 @@ def eval_one_epoch(cfg, model, dataloader, epoch_id, logger, dist_test=False, sa
     if cfg.OPTIMIZATION.get('DSNORM', None):
         model.apply(set_ds_target)
 
-    if False: #osp.isfile(result_dir / 'result.pkl'):
-        with open(result_dir / 'result.pkl', 'rb') as f:
+    ret_dict = {}
+    if True: #osp.isfile(result_dir / 'result.pkl'):
+        with open('det_annos.pkl', 'rb') as f:
             det_annos = pickle.load(f)
     else:
         if cfg.LOCAL_RANK == 0:
@@ -76,7 +77,10 @@ def eval_one_epoch(cfg, model, dataloader, epoch_id, logger, dist_test=False, sa
             disp_dict = {}
 
             statistics_info(cfg, ret_dict, metric, disp_dict)
-            annos = dataset.generate_prediction_dicts(
+            generate_prediction_func = dataset.generate_prediction_dicts
+            if hasattr(dataset, 'trg_dataset'):
+                generate_prediction_func = dataset.trg_dataset.generate_prediction_dicts
+            annos = generate_prediction_func(
                 batch_dict, pred_dicts, class_names,
                 output_path=final_output_dir if save_to_file else None
             )
@@ -100,7 +104,6 @@ def eval_one_epoch(cfg, model, dataloader, epoch_id, logger, dist_test=False, sa
         if cfg.LOCAL_RANK != 0:
             return {}
 
-        ret_dict = {}
         if dist_test:
             for key, val in metric[0].items():
                 for k in range(1, world_size):

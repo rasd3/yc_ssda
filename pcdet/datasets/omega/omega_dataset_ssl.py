@@ -387,6 +387,7 @@ class OmegaDatasetSSL(NuScenesDatasetSSL):
                     anno['location'] = anno['dimensions'] = np.zeros((0, 3))
                     anno['rotation_y'] = anno['alpha'] = np.zeros(0)
 
+        eval_gt_annos = copy.deepcopy(self.labeled_infos)
         transform_to_kitti_format(eval_det_annos)
         transform_to_kitti_format(eval_gt_annos, info_with_fakelidar=False, is_gt=True)
 

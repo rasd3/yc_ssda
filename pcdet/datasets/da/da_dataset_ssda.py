@@ -172,10 +172,10 @@ class DADatasetCO(torch_data.Dataset):
     def evaluation(self, det_annos, class_names, **kwargs):
         if kwargs['eval_metric'] == 'kitti':
             eval_det_annos = copy.deepcopy(det_annos)
-            eval_gt_annos = copy.deepcopy(self.trg_dataset.infos)
-            return self.trg_dataset.kitti_eval(eval_det_annos, eval_gt_annos, class_names)
+            return self.trg_dataset.kitti_eval(eval_det_annos, class_names, **kwargs)
         elif kwargs['eval_metric'] == 'nuscenes':
-            return self.trg_dataset.nuscene_eval(det_annos, class_names, **kwargs)
+            eval_det_annos = copy.deepcopy(det_annos)
+            return self.trg_dataset.nuscene_eval(eval_det_annos, class_names, **kwargs)
         else:
             raise NotImplementedError
 
@@ -378,10 +378,10 @@ class DADatasetSSDA(torch_data.Dataset):
     def evaluation(self, det_annos, class_names, **kwargs):
         if kwargs['eval_metric'] == 'kitti':
             eval_det_annos = copy.deepcopy(det_annos)
-            eval_gt_annos = copy.deepcopy(self.trg_dataset.labeled_infos)
-            return self.trg_dataset.kitti_eval(eval_det_annos, eval_gt_annos, class_names)
+            return self.trg_dataset.kitti_eval(eval_det_annos, class_names, **kwargs)
         elif kwargs['eval_metric'] == 'nuscenes':
-            return self.trg_dataset.nuscene_eval(det_annos, class_names, **kwargs)
+            eval_det_annos = copy.deepcopy(det_annos)
+            return self.trg_dataset.nuscene_eval(eval_det_annos, class_names, **kwargs)
         else:
             raise NotImplementedError
 

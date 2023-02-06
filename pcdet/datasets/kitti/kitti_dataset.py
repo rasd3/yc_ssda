@@ -1,13 +1,25 @@
+import os
+import json
 import copy
+import time
 import pickle
 
 import numpy as np
 from skimage import io
+from pathlib import Path
 
 from ...ops.roiaware_pool3d import roiaware_pool3d_utils
 from ...utils import box_utils, calibration_kitti, common_utils, object3d_kitti
 from ..dataset import DatasetTemplate
+from .kitti_dataset_ssl import NuScenesWaymoEval
 
+from nuscenes.eval.detection.evaluate import DetectionEval
+from nuscenes.eval.detection.data_classes import DetectionBox, DetectionConfig, DetectionMetrics, DetectionBox, DetectionMetricDataList
+from nuscenes.eval.tracking.data_classes import TrackingBox
+from nuscenes.eval.detection.algo import accumulate, calc_ap, calc_tp
+from nuscenes.eval.detection.constants import TP_METRICS
+from typing import Optional, Tuple, Dict, Any
+from nuscenes import NuScenes
 
 class KittiDataset(DatasetTemplate):
     def __init__(self, dataset_cfg, class_names, training=True, root_path=None, logger=None):
@@ -325,6 +337,7 @@ class KittiDataset(DatasetTemplate):
             pred_dict['rotation_y'] = pred_boxes_camera[:, 6]
             pred_dict['score'] = pred_scores
             pred_dict['boxes_lidar'] = pred_boxes
+            pred_dict['pred_labels'] = pred_labels
 
             return pred_dict
 
@@ -352,29 +365,142 @@ class KittiDataset(DatasetTemplate):
                                  single_pred_dict['score'][idx]), file=f)
 
         return annos
-    
-    def kitti_eval(self, eval_det_annos, eval_gt_annos):
+
+    def kitti_eval(self, eval_det_annos, class_names=None, **kwargs):
         from .kitti_object_eval_python import eval as kitti_eval
+        map_name_to_kitti = {
+            'car': 'Car',
+            'truck': 'Truck',
+            'bus': 'Bus',
+            'motorcycle': 'Motorcycle',
+            'pedestrian': 'Pedestrian',
+            'bicycle': 'Cyclist',
+        }
+        for anno in eval_det_annos:
+            for k in range(anno['name'].shape[0]):
+                if anno['name'][k] in map_name_to_kitti:
+                    anno['name'][k] = map_name_to_kitti[anno['name'][k]]
+                else:
+                    anno['name'][k] = 'Person_sitting'
+        for idx in range(len(class_names)):
+            if class_names[idx] in map_name_to_kitti:
+                class_names[idx] = map_name_to_kitti[class_names[idx]]
+
+        eval_gt_annos = [copy.deepcopy(info['annos']) for info in self.kitti_infos]
         ap_result_str, ap_dict = kitti_eval.get_official_eval_result(eval_gt_annos, eval_det_annos, class_names)
 
         return ap_result_str, ap_dict
 
-    def nuscene_eval(self, eval_det_annos, eval_gt_annos):
-        ap_dict = {}
-        return ap_result_str, ap_dict
+    def nuscene_eval(self, eval_det_annos, class_names=None, **kwargs):
+        import json
+        from nuscenes.nuscenes import NuScenes
+        from . import kitti_utils
+
+        eval_gt_annos = [copy.deepcopy(info['annos']) for info in self.kitti_infos]
+
+        map_name_to_kitti = {
+            'Car': 'car',
+            'Pedestrian': 'pedestrian',
+            'Cyclist': 'bicycle',
+        }
+        for anno in eval_det_annos:
+            for k in range(anno['name'].shape[0]):
+                if anno['name'][k] in map_name_to_kitti:
+                    anno['name'][k] = map_name_to_kitti[anno['name'][k]]
+        for anno in eval_gt_annos:
+            for k in range(anno['name'].shape[0]):
+                if anno['name'][k] in map_name_to_kitti:
+                    anno['name'][k] = map_name_to_kitti[anno['name'][k]]
+
+        for idx in range(len(class_names)):
+            if class_names[idx] in map_name_to_kitti:
+                class_names[idx] = map_name_to_kitti[class_names[idx]]
+
+        nusc = NuScenes(version='for_nusc_eval',
+                        dataroot=str(self.root_path),
+                        verbose=True)
+        nusc_annos = kitti_utils.transform_det_annos_to_nusc_annos(
+            eval_det_annos)
+        nusc_gt_annos = kitti_utils.transform_det_annos_to_nusc_gt_annos(
+            eval_gt_annos[:len(eval_det_annos)], eval_det_annos)
+
+        nusc_annos['meta'] = {
+            'use_camera': False,
+            'use_lidar': True,
+            'use_radar': False,
+            'use_map': False,
+            'use_external': False,
+        }
+
+        nusc_gt_annos['meta'] = {
+            'use_camera': False,
+            'use_lidar': True,
+            'use_radar': False,
+            'use_map': False,
+            'use_external': False,
+        }
+
+        # output_path = Path(kwargs['output_path'])
+        output_path = Path("./")
+        output_path.mkdir(exist_ok=True, parents=True)
+        res_path = str(output_path / 'results_pred_nusc.json')
+        with open(res_path, 'w') as f:
+            json.dump(nusc_annos, f)
+        
+        res_gt_path = str(output_path / 'results_gt_nusc.json')
+        with open(res_gt_path, 'w') as f:
+            json.dump(nusc_gt_annos, f)
+
+        self.logger.info(
+            f'The predictions of NuScenes have been saved to {res_path}')
+
+        # if self.dataset_cfg.VERSION == 'waymo_processed_data_v0_5_0':
+        #     return 'No ground-truth annotations for evaluation', {}
+
+        from nuscenes.eval.detection.config import config_factory
+        from nuscenes.eval.detection.evaluate import NuScenesEval
+
+        eval_set_map = {
+            'v1.0-mini': 'mini_val',
+            'v1.0-trainval': 'val',
+            'waymo_processed_data_v0_5_0': 'val',
+            'v1.0-test': 'test'
+        }
+        try:
+            eval_version = 'detection_cvpr_2019'
+            eval_config = config_factory(eval_version)
+        except:
+            eval_version = 'cvpr_2019'
+            eval_config = config_factory(eval_version)
+
+        nusc_eval = NuScenesWaymoEval(
+            nusc,
+            config=eval_config,
+            result_path=res_path,
+            gt_path=res_gt_path,
+            eval_set='val',
+            output_dir=str(output_path),
+            verbose=True,
+        )
+        metrics_summary = nusc_eval.main(plot_examples=0, render_curves=False)
+
+        with open(output_path / 'metrics_summary.json', 'r') as f:
+            metrics = json.load(f)
+
+        result_str, result_dict = kitti_utils.format_kitti_results(
+            metrics, self.class_names, version=eval_version)
+        return result_str, result_dict
 
     def evaluation(self, det_annos, class_names, **kwargs):
         if 'annos' not in self.kitti_infos[0].keys():
             return None, {}
 
         eval_det_annos = copy.deepcopy(det_annos)
-        eval_gt_annos = [copy.deepcopy(info['annos']) for info in self.kitti_infos]
 
         if kwargs['eval_metric'] == 'kitti':
-            ap_result_str, ap_dict = self.kitti_eval(eval_det_annos, eval_gt_annos)
+            ap_result_str, ap_dict = self.kitti_eval(eval_det_annos, class_names)
         elif kwargs['eval_metric'] == 'nuscenes':
-            ap_result_str, ap_dict = self.nuscene_eval(eval_det_annos, eval_gt_annos)
-
+            ap_result_str, ap_dict = self.nuscene_eval(eval_det_annos, class_names)
 
         return ap_result_str, ap_dict
 

@@ -37,6 +37,8 @@ class CenterPoint_PointPillar_RCNNV2(Detector3DTemplateV2):
             ret_dict = {
                 'loss': loss
             }
+            if 'mgfa_feats' in batch_dict:
+                disp_dict['mgfa_feats'] = batch_dict['mgfa_feats']
             return ret_dict, tb_dict, disp_dict
         else:
             if False:

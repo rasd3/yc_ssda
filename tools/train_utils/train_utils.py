@@ -164,11 +164,13 @@ def train_one_epoch_dann(model, optimizer, train_loader, model_func, lr_schedule
     if type(model) == torch.nn.parallel.distributed.DistributedDataParallel:
         use_local_alignment = model.module.use_local_alignment
         use_domain_cls = model.module.backbone_2d.use_domain_cls
+        use_mgfa = model.module.backbone_2d.mgfa
         if use_local_alignment:
             dla_cfg = model.module.dla_cfg
     else:
         use_local_alignment = model.use_local_alignment
         use_domain_cls = model.backbone_2d.use_domain_cls
+        use_mgfa = model.backbone_2d.mgfa
         if use_local_alignment:
             dla_cfg = model.dla_cfg
     for cur_it in range(total_it_each_epoch):
@@ -205,47 +207,61 @@ def train_one_epoch_dann(model, optimizer, train_loader, model_func, lr_schedule
             clip_grad_norm_(model.parameters(), optim_cfg.GRAD_NORM_CLIP)
             optimizer.step()
 
-        with torch.autograd.set_detect_anomaly(True):
-            trg_batch['domain_target'] = True
-            trg_batch['use_local_alignment'] = False
-            trg_d_loss = torch.tensor(0.).cuda()
-            if use_domain_cls:
-                if not retain_graph:
-                    optimizer.zero_grad()
-                trg_d_loss, trg_tb_dict, trg_disp_dict = model_func(model, trg_batch)
-                trg_d_loss.backward()
+        trg_batch['domain_target'] = True
+        trg_batch['use_local_alignment'] = False
+        trg_d_loss = torch.tensor(0.).cuda()
+        if use_domain_cls:
+            if not retain_graph:
+                optimizer.zero_grad()
+            trg_d_loss, trg_tb_dict, trg_disp_dict = model_func(model, trg_batch)
+            trg_d_loss.backward(retain_graph=(retain_graph and use_mgfa))
+            if not retain_graph and not use_mgfa:
                 clip_grad_norm_(model.parameters(), optim_cfg.GRAD_NORM_CLIP)
                 optimizer.step()
-                if 'domain_cls_loss' in trg_tb_dict:
-                    tb_dict['trg_domain_cls_loss'] = trg_tb_dict['domain_cls_loss']
-                    tb_dict['src_domain_cls_loss'] = tb_dict.pop('domain_cls_loss')
+            if 'domain_cls_loss' in trg_tb_dict:
+                tb_dict['trg_domain_cls_loss'] = trg_tb_dict['domain_cls_loss']
+                tb_dict['src_domain_cls_loss'] = tb_dict.pop('domain_cls_loss')
 
         loss_node_adv = torch.tensor(0.).cuda()
         if use_local_alignment:
             optimizer.zero_grad()
             src_batch['use_local_alignment'] = True
             trg_batch['use_local_alignment'] = True
-            with torch.autograd.set_detect_anomaly(True):
-                if dla_cfg.DIR == 'st':
-                    with torch.no_grad():
-                        _, tb_dict, disp_dict, s_dla_feat = model_func(model, src_batch)
-                    _, trg_tb_dict, trg_disp_dict, t_dla_feat = model_func(model, trg_batch)
-                else:
+            if dla_cfg.DIR == 'st':
+                with torch.no_grad():
                     _, tb_dict, disp_dict, s_dla_feat = model_func(model, src_batch)
-                    with torch.no_grad():
-                        _, trg_tb_dict, trg_disp_dict, t_dla_feat = model_func(model, trg_batch)
-                K = min(s_dla_feat.shape[0], t_dla_feat.shape[0])
-                s_dla_feat, t_dla_feat = s_dla_feat[:K], t_dla_feat[:K]
-                sigma_list = [0.01, 0.1, 1, 10, 100]
-                loss_node_adv = 1 * mmd.mix_rbf_mmd2(s_dla_feat, t_dla_feat, sigma_list)
-                loss_node_adv.backward()
-                clip_grad_norm_(model.parameters(), optim_cfg.GRAD_NORM_CLIP)
-                optimizer.step()
+                _, trg_tb_dict, trg_disp_dict, t_dla_feat = model_func(model, trg_batch)
+            else:
+                _, tb_dict, disp_dict, s_dla_feat = model_func(model, src_batch)
+                with torch.no_grad():
+                    _, trg_tb_dict, trg_disp_dict, t_dla_feat = model_func(model, trg_batch)
+            K = min(s_dla_feat.shape[0], t_dla_feat.shape[0])
+            s_dla_feat, t_dla_feat = s_dla_feat[:K], t_dla_feat[:K]
+            sigma_list = [0.01, 0.1, 1, 10, 100]
+            loss_node_adv = 1 * mmd.mix_rbf_mmd2(s_dla_feat, t_dla_feat, sigma_list)
+            loss_node_adv.backward()
+            clip_grad_norm_(model.parameters(), optim_cfg.GRAD_NORM_CLIP)
+            optimizer.step()
 
             tb_dict['domain_align_loss'] = loss_node_adv.item()
+        loss_mgfa = torch.tensor(0.).cuda()
+        if use_mgfa:
+            sigma_list = [0.01, 0.1, 1, 10, 100]
+            src_mgfa_feats = disp_dict['mgfa_feats']
+            trg_mgfa_feats = trg_disp_dict['mgfa_feats']
+            disp_dict.pop('mgfa_feats')
+            trg_disp_dict.pop('mgfa_feats')
+            for idx in range(len(src_mgfa_feats)):
+                loss_mgfa_i = 1 * mmd.mix_rbf_mmd2(src_mgfa_feats[idx], 
+                                                   trg_mgfa_feats[idx],
+                                                   sigma_list)
+                loss_mgfa = loss_mgfa + loss_mgfa_i
+            loss_mgfa = loss_mgfa / len(src_mgfa_feats)
+            loss_mgfa.backward()
+            optimizer.step()
 
         accumulated_iter += 1
-        disp_dict.update({'loss': src_loss.item() + trg_d_loss.item() + loss_node_adv.item(), 'lr': cur_lr})
+        disp_dict.update({'loss': src_loss.item() + trg_d_loss.item() + loss_node_adv.item() + loss_mgfa.item(), 'lr': cur_lr})
 
         # log to console and tensorboard
         if rank == 0:

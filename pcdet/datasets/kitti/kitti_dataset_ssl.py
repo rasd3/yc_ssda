@@ -1,11 +1,24 @@
+import os
 import copy
+import time
+import json
 import pickle
 from collections import defaultdict
 
 import numpy as np
 from skimage import io
+from pathlib import Path
+
+from nuscenes.eval.detection.evaluate import DetectionEval
+from nuscenes.eval.detection.data_classes import DetectionBox, DetectionConfig, DetectionMetrics, DetectionBox, DetectionMetricDataList
+from nuscenes.eval.tracking.data_classes import TrackingBox
+from nuscenes.eval.detection.algo import accumulate, calc_ap, calc_tp
+from nuscenes.eval.detection.constants import TP_METRICS
+from typing import Optional, Tuple, Dict, Any
+from nuscenes import NuScenes
 
 from pcdet.datasets.augmentor.augmentor_utils import *
+from .kitti_utils import *
 from ...ops.roiaware_pool3d import roiaware_pool3d_utils
 from ...utils import box_utils, calibration_kitti, common_utils, object3d_kitti
 from ..dataset import DatasetTemplate
@@ -343,6 +356,7 @@ class KittiDatasetSSL(DatasetTemplate):
             pred_dict['rotation_y'] = pred_boxes_camera[:, 6]
             pred_dict['score'] = pred_scores
             pred_dict['boxes_lidar'] = pred_boxes
+            pred_dict['pred_labels'] = pred_labels
 
             return pred_dict
 
@@ -371,15 +385,110 @@ class KittiDatasetSSL(DatasetTemplate):
 
         return annos
 
-    def kitti_eval(self, eval_det_annos, eval_gt_annos):
+    def kitti_eval(self, eval_det_annos, class_names=None, **kwargs):
         from .kitti_object_eval_python import eval as kitti_eval
+        map_name_to_kitti = {
+            'car': 'Car',
+            'truck': 'Truck',
+            'bus': 'Bus',
+            'motorcycle': 'Motorcycle',
+            'pedestrian': 'Pedestrian',
+            'bicycle': 'Cyclist',
+        }
+        for anno in eval_det_annos:
+            for k in range(anno['name'].shape[0]):
+                if anno['name'][k] in map_name_to_kitti:
+                    anno['name'][k] = map_name_to_kitti[anno['name'][k]]
+                else:
+                    anno['name'][k] = 'Person_sitting'
+        for idx in range(len(class_names)):
+            if class_names[idx] in map_name_to_kitti:
+                class_names[idx] = map_name_to_kitti[class_names[idx]]
+
+        eval_gt_annos = [copy.deepcopy(info['annos']) for info in self.kitti_infos]
         ap_result_str, ap_dict = kitti_eval.get_official_eval_result(eval_gt_annos, eval_det_annos, class_names)
 
         return ap_result_str, ap_dict
 
-    def nuscene_eval(self, eval_det_annos, eval_gt_annos):
-        ap_dict = {}
-        return ap_result_str, ap_dict
+    def nuscene_eval(self, eval_det_annos, class_names=None, **kwargs):
+        import json
+        from nuscenes.nuscenes import NuScenes
+        from . import kitti_utils
+        eval_gt_annos = [copy.deepcopy(info['annos']) for info in self.kitti_infos]
+        nusc = NuScenes(version='for_nusc_eval',
+                        dataroot=str(self.root_path),
+                        verbose=True)
+        nusc_annos = kitti_utils.transform_det_annos_to_nusc_annos(
+            eval_det_annos)
+        nusc_gt_annos = kitti_utils.transform_det_annos_to_nusc_gt_annos(
+            eval_gt_annos[:len(eval_det_annos)], eval_det_annos)
+
+        nusc_annos['meta'] = {
+            'use_camera': False,
+            'use_lidar': True,
+            'use_radar': False,
+            'use_map': False,
+            'use_external': False,
+        }
+
+        nusc_gt_annos['meta'] = {
+            'use_camera': False,
+            'use_lidar': True,
+            'use_radar': False,
+            'use_map': False,
+            'use_external': False,
+        }
+
+        # output_path = Path(kwargs['output_path'])
+        output_path = Path("./")
+        output_path.mkdir(exist_ok=True, parents=True)
+        res_path = str(output_path / 'results_pred_nusc.json')
+        with open(res_path, 'w') as f:
+            json.dump(nusc_annos, f)
+        
+        res_gt_path = str(output_path / 'results_gt_nusc.json')
+        with open(res_gt_path, 'w') as f:
+            json.dump(nusc_gt_annos, f)
+
+        self.logger.info(
+            f'The predictions of NuScenes have been saved to {res_path}')
+
+        # if self.dataset_cfg.VERSION == 'waymo_processed_data_v0_5_0':
+        #     return 'No ground-truth annotations for evaluation', {}
+
+        from nuscenes.eval.detection.config import config_factory
+        from nuscenes.eval.detection.evaluate import NuScenesEval
+
+        eval_set_map = {
+            'v1.0-mini': 'mini_val',
+            'v1.0-trainval': 'val',
+            'waymo_processed_data_v0_5_0': 'val',
+            'v1.0-test': 'test'
+        }
+        try:
+            eval_version = 'detection_cvpr_2019'
+            eval_config = config_factory(eval_version)
+        except:
+            eval_version = 'cvpr_2019'
+            eval_config = config_factory(eval_version)
+
+        nusc_eval = NuScenesWaymoEval(
+            nusc,
+            config=eval_config,
+            result_path=res_path,
+            gt_path=res_gt_path,
+            eval_set='val',
+            output_dir=str(output_path),
+            verbose=True,
+        )
+        metrics_summary = nusc_eval.main(plot_examples=0, render_curves=False)
+
+        with open(output_path / 'metrics_summary.json', 'r') as f:
+            metrics = json.load(f)
+
+        result_str, result_dict = kitti_utils.format_kitti_results(
+            metrics, self.class_names, version=eval_version)
+        return result_str, result_dict
 
     def evaluation(self, det_annos, class_names, **kwargs):
         if 'annos' not in self.kitti_infos[0].keys():
@@ -389,9 +498,9 @@ class KittiDatasetSSL(DatasetTemplate):
         eval_gt_annos = [copy.deepcopy(info['annos']) for info in self.kitti_infos]
 
         if kwargs['eval_metric'] == 'kitti':
-            ap_result_str, ap_dict = self.kitti_eval(eval_det_annos, eval_gt_annos)
+            ap_result_str, ap_dict = self.kitti_eval(eval_det_annos, class_names)
         elif kwargs['eval_metric'] == 'nuscenes':
-            ap_result_str, ap_dict = self.nuscene_eval(eval_det_annos, eval_gt_annos)
+            ap_result_str, ap_dict = self.nuscene_eval(eval_det_annos, class_names)
 
         return ap_result_str, ap_dict
 
@@ -617,6 +726,351 @@ class KittiDatasetSSL(DatasetTemplate):
 
         return data_dict
 
+def category_to_detection_name_waymo(category_name: str) -> Optional[str]:
+    """
+    Default label mapping from nuScenes to nuScenes detection classes.
+    Note that pedestrian does not include personal_mobility, stroller and wheelchair.
+    :param category_name: Generic nuScenes class.
+    :return: nuScenes detection class.
+    """
+    detection_mapping = {
+        'Vehicle': 'car',
+        'Pedestrian': 'pedestrian',
+        'Cyclist': 'motorcycle',
+    }
+
+    if category_name in detection_mapping:
+        return detection_mapping[category_name]
+    else:
+        return None
+
+class DetectionWaymoEval(DetectionEval):
+    """
+    dumy class
+    """
+
+    def __init__(self,
+                 nusc: NuScenes,
+                 config: DetectionConfig,
+                 result_path: str,
+                 eval_set: str,
+                 output_dir: str = None,
+                 use_smAP: bool = False,
+                 verbose: bool = True):
+        pass
+
+class NuScenesWaymoEval(DetectionWaymoEval):
+    def __init__(self,
+                 nusc: NuScenes,
+                 config: DetectionConfig,
+                 result_path: str,
+                 gt_path: str,
+                 eval_set: str,
+                 output_dir: str = None,
+                 verbose: bool = True):
+        """
+        Initialize a DetectionEval object.
+        :param nusc: A NuScenes object.
+        :param config: A DetectionConfig object.
+        :param result_path: Path of the nuScenes JSON result file.
+        :param eval_set: The dataset split to evaluate on, e.g. train, val or test.
+        :param output_dir: Folder to save plots and results to.
+        :param verbose: Whether to print to stdout.
+        """
+        self.nusc = nusc
+        self.result_path = result_path
+        self.gt_path=gt_path
+        self.eval_set = eval_set
+        self.output_dir = output_dir
+        self.verbose = verbose
+        self.cfg = config
+
+        # Check result file exists.
+        assert os.path.exists(result_path), 'Error: The result file does not exist!'
+
+        # Make dirs.
+        self.plot_dir = os.path.join(self.output_dir, 'plots')
+        if not os.path.isdir(self.output_dir):
+            os.makedirs(self.output_dir)
+        if not os.path.isdir(self.plot_dir):
+            os.makedirs(self.plot_dir)
+
+        # Load data.
+        if verbose:
+            print('Initializing nuScenes detection evaluation')
+        self.pred_boxes, self.meta = load_prediction(self.result_path, self.cfg.max_boxes_per_sample, DetectionBox,
+                                                     verbose=verbose)
+        # self.gt_boxes = load_gt(self.nusc, self.eval_set, DetectionBox, verbose=verbose)
+        self.gt_boxes, self.meta = load_prediction(self.gt_path, self.cfg.max_boxes_per_sample, DetectionBox,
+                                                     verbose=verbose)
+
+        assert set(self.pred_boxes.sample_tokens) == set(self.gt_boxes.sample_tokens), \
+            "Samples in split doesn't match samples in predictions."
+
+        # Add center distances.
+        self.pred_boxes = add_center_dist(nusc, self.pred_boxes)
+        self.gt_boxes = add_center_dist(nusc, self.gt_boxes)
+
+        # Filter boxes (distance, points per box, etc.).
+        if verbose:
+            print('Filtering predictions')
+        self.pred_boxes = filter_eval_boxes(nusc, self.pred_boxes, self.cfg.class_range, verbose=verbose)
+        if verbose:
+            print('Filtering ground truth annotations')
+        self.gt_boxes = filter_eval_boxes(nusc, self.gt_boxes, self.cfg.class_range, verbose=verbose)
+
+        self.sample_tokens = self.gt_boxes.sample_tokens
+
+    def evaluate(self) -> Tuple[DetectionMetrics, DetectionMetricDataList]:
+        """
+        Performs the actual evaluation.
+        :return: A tuple of high-level and the raw metric data.
+        """
+        start_time = time.time()
+
+        # -----------------------------------
+        # Step 1: Accumulate metric data for all classes and distance thresholds.
+        # -----------------------------------
+        if self.verbose:
+            print('Accumulating metric data...')
+        metric_data_list = DetectionMetricDataList()
+        self.cfg.class_names = ['car', 'pedestrian', 'bicycle']
+        for class_name in self.cfg.class_names:
+            for dist_th in self.cfg.dist_ths:
+                md = accumulate(self.gt_boxes, self.pred_boxes, class_name, self.cfg.dist_fcn_callable, dist_th)
+                metric_data_list.set(class_name, dist_th, md)
+
+        # -----------------------------------
+        # Step 2: Calculate metrics from the data.
+        # -----------------------------------
+        if self.verbose:
+            print('Calculating metrics...')
+        metrics = DetectionMetrics(self.cfg)
+        for class_name in self.cfg.class_names:
+            # Compute APs.
+            for dist_th in self.cfg.dist_ths:
+                metric_data = metric_data_list[(class_name, dist_th)]
+                ap = calc_ap(metric_data, self.cfg.min_recall, self.cfg.min_precision)
+                metrics.add_label_ap(class_name, dist_th, ap)
+
+            # Compute TP metrics.
+            for metric_name in TP_METRICS:
+                metric_data = metric_data_list[(class_name, self.cfg.dist_th_tp)]
+                if class_name in ['traffic_cone'] and metric_name in ['attr_err', 'vel_err', 'orient_err']:
+                    tp = np.nan
+                elif class_name in ['barrier'] and metric_name in ['attr_err', 'vel_err']:
+                    tp = np.nan
+                else:
+                    tp = calc_tp(metric_data, self.cfg.min_recall, metric_name)
+                metrics.add_label_tp(class_name, metric_name, tp)
+
+        # Compute evaluation time.
+        metrics.add_runtime(time.time() - start_time)
+
+        return metrics, metric_data_list
+
+    def render(self, metrics: DetectionMetrics, md_list: DetectionMetricDataList) -> None:
+        """
+        Renders various PR and TP curves.
+        :param metrics: DetectionMetrics instance.
+        :param md_list: DetectionMetricDataList instance.
+        """
+        if self.verbose:
+            print('Rendering PR and TP curves')
+
+    def main(self,
+             plot_examples: int = 0,
+             render_curves: bool = True) -> Dict[str, Any]:
+        """
+        Main function that loads the evaluation code, visualizes samples, runs the evaluation and renders stat plots.
+        :param plot_examples: How many example visualizations to write to disk.
+        :param render_curves: Whether to render PR and TP curves to disk.
+        :return: A dict that stores the high-level metrics and meta data.
+        """
+        # Run evaluation.
+        metrics, metric_data_list = self.evaluate()
+
+        # Render PR and TP curves.
+        if render_curves:
+            self.render(metrics, metric_data_list)
+
+        # Dump the metric data, meta and metrics to disk.
+        if self.verbose:
+            print('Saving metrics to: %s' % self.output_dir)
+        metrics_summary = metrics.serialize()
+        metrics_summary['meta'] = self.meta.copy()
+        with open(os.path.join(self.output_dir, 'metrics_summary.json'), 'w') as f:
+            json.dump(metrics_summary, f, indent=2)
+        with open(os.path.join(self.output_dir, 'metrics_details.json'), 'w') as f:
+            json.dump(metric_data_list.serialize(), f, indent=2)
+
+        # Print high-level metrics.
+        print('mAP: %.4f' % (metrics_summary['mean_ap']))
+        err_name_mapping = {
+            'trans_err': 'mATE',
+            'scale_err': 'mASE',
+            'orient_err': 'mAOE',
+            'vel_err': 'mAVE',
+            'attr_err': 'mAAE'
+        }
+        for tp_name, tp_val in metrics_summary['tp_errors'].items():
+            print('%s: %.4f' % (err_name_mapping[tp_name], tp_val))
+        print('NDS: %.4f' % (metrics_summary['nd_score']))
+        print('Eval time: %.1fs' % metrics_summary['eval_time'])
+
+        # Print per-class metrics.
+        print()
+        print('Per-class results:')
+        print('Object Class\tAP\tATE\tASE\tAOE\tAVE\tAAE')
+        class_aps = metrics_summary['mean_dist_aps']
+        class_tps = metrics_summary['label_tp_errors']
+        for class_name in class_aps.keys():
+            print('%s\t%.3f\t%.3f\t%.3f\t%.3f\t%.3f\t%.3f'
+                  % (class_name, class_aps[class_name],
+                     class_tps[class_name]['trans_err'],
+                     class_tps[class_name]['scale_err'],
+                     class_tps[class_name]['orient_err'],
+                     class_tps[class_name]['vel_err'],
+                     class_tps[class_name]['attr_err']))
+
+        return metrics_summary
+
+def add_center_dist(nusc: NuScenes,
+                    eval_boxes: EvalBoxes):
+    """
+    Adds the cylindrical (xy) center distance from ego vehicle to each box.
+    :param nusc: The NuScenes instance.
+    :param eval_boxes: A set of boxes, either GT or predictions.
+    :return: eval_boxes augmented with center distances.
+    """
+    for sample_token in eval_boxes.sample_tokens:
+        # sample_rec = nusc.get('sample', sample_token)
+        # sd_record = nusc.get('sample_data', sample_rec['data']['LIDAR_TOP'])
+        # pose_record = nusc.get('ego_pose', sd_record['ego_pose_token'])
+
+        for box in eval_boxes[sample_token]:
+            # Both boxes and ego pose are given in global coord system, so distance can be calculated directly.
+            # Note that the z component of the ego pose is 0.
+            ego_translation = (box.translation[0],
+                               box.translation[1],
+                               box.translation[2])
+            if isinstance(box, DetectionBox) or isinstance(box, TrackingBox):
+                box.ego_translation = ego_translation
+            else:
+                raise NotImplementedError
+
+    return eval_boxes
+
+def filter_eval_boxes(nusc: NuScenes,
+                      eval_boxes: EvalBoxes,
+                      max_dist: Dict[str, float],
+                      verbose: bool = False) -> EvalBoxes:
+    """
+    Applies filtering to boxes. Distance, bike-racks and points per box.
+    :param nusc: An instance of the NuScenes class.
+    :param eval_boxes: An instance of the EvalBoxes class.
+    :param max_dist: Maps the detection name to the eval distance threshold for that class.
+    :param verbose: Whether to print to stdout.
+    """
+    # Retrieve box type for detectipn/tracking boxes.
+    class_field = _get_box_class_field(eval_boxes)
+
+    # Accumulators for number of filtered boxes.
+    total, dist_filter, point_filter, bike_rack_filter = 0, 0, 0, 0
+    for ind, sample_token in enumerate(eval_boxes.sample_tokens):
+
+        # Filter on distance first.
+        total += len(eval_boxes[sample_token])
+        eval_boxes.boxes[sample_token] = [box for box in eval_boxes[sample_token] if
+                                          box.ego_dist < max_dist[box.__getattribute__(class_field)]]
+        dist_filter += len(eval_boxes[sample_token])
+
+        # Then remove boxes with zero points in them. Eval boxes have -1 points by default.
+        eval_boxes.boxes[sample_token] = [box for box in eval_boxes[sample_token] if not box.num_pts == 0]
+        point_filter += len(eval_boxes[sample_token])
+
+        # Perform bike-rack filtering.
+        # sample_anns = nusc.get('sample', sample_token)['anns']
+        # bikerack_recs = [nusc.get('sample_annotation', ann) for ann in sample_anns if
+        #                  nusc.get('sample_annotation', ann)['category_name'] == 'static_object.bicycle_rack']
+        # bikerack_boxes = [Box(rec['translation'], rec['size'], Quaternion(rec['rotation'])) for rec in bikerack_recs]
+        filtered_boxes = []
+        for box in eval_boxes[sample_token]:
+            # if box.__getattribute__(class_field) in ['bicycle', 'motorcycle']:
+            #     in_a_bikerack = True
+            #     # for bikerack_box in bikerack_boxes:
+            #     #     if np.sum(points_in_box(bikerack_box, np.expand_dims(np.array(box.translation), axis=1))) > 0:
+            #     #         in_a_bikerack = True
+            #     if not in_a_bikerack:
+            #         filtered_boxes.append(box)
+            # else:
+            #     filtered_boxes.append(box)
+            filtered_boxes.append(box)
+
+        eval_boxes.boxes[sample_token] = filtered_boxes
+        bike_rack_filter += len(eval_boxes.boxes[sample_token])
+
+    if verbose:
+        print("=> Original number of boxes: %d" % total)
+        print("=> After distance based filtering: %d" % dist_filter)
+        print("=> After LIDAR and RADAR points based filtering: %d" % point_filter)
+        print("=> After bike rack filtering: %d" % bike_rack_filter)
+
+    return eval_boxes
+
+def load_prediction(result_path: str, max_boxes_per_sample: int, box_cls, verbose: bool = False) \
+        -> Tuple[EvalBoxes, Dict]:
+    """
+    Loads object predictions from file.
+    :param result_path: Path to the .json result file provided by the user.
+    :param max_boxes_per_sample: Maximim number of boxes allowed per sample.
+    :param box_cls: Type of box to load, e.g. DetectionBox or TrackingBox.
+    :param verbose: Whether to print messages to stdout.
+    :return: The deserialized results and meta data.
+    """
+
+    # Load from file and check that the format is correct.
+    with open(result_path) as f:
+        data = json.load(f)
+    assert 'results' in data, 'Error: No field `results` in result file. Please note that the result format changed.' \
+                              'See https://www.nuscenes.org/object-detection for more information.'
+
+    # Deserialize results and get meta data.
+    all_results = EvalBoxes.deserialize(data['results'], box_cls)
+    meta = data['meta']
+    if verbose:
+        print("Loaded results from {}. Found detections for {} samples."
+              .format(result_path, len(all_results.sample_tokens)))
+
+    # Check that each sample has no more than x predicted boxes.
+    for sample_token in all_results.sample_tokens:
+        assert len(all_results.boxes[sample_token]) <= max_boxes_per_sample, \
+            "Error: Only <= %d boxes per sample allowed!" % max_boxes_per_sample
+
+    return all_results, meta
+
+def _get_box_class_field(eval_boxes: EvalBoxes) -> str:
+    """
+    Retrieve the name of the class field in the boxes.
+    This parses through all boxes until it finds a valid box.
+    If there are no valid boxes, this function throws an exception.
+    :param eval_boxes: The EvalBoxes used for evaluation.
+    :return: The name of the class field in the boxes, e.g. detection_name or tracking_name.
+    """
+    assert len(eval_boxes.boxes) > 0
+    box = None
+    for val in eval_boxes.boxes.values():
+        if len(val) > 0:
+            box = val[0]
+            break
+    if isinstance(box, DetectionBox):
+        class_field = 'detection_name'
+    elif isinstance(box, TrackingBox):
+        class_field = 'tracking_name'
+    else:
+        raise Exception('Error: Invalid box type: %s' % box)
+
+    return class_field
 
 def create_kitti_infos(dataset_cfg, class_names, data_path, save_path, workers=4):
     dataset = KittiDatasetSSL(dataset_cfg=dataset_cfg, class_names=class_names, root_path=data_path, training=False)
