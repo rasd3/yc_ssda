@@ -17,7 +17,7 @@ class CenterPoint_PointPillar_RCNNV2(Detector3DTemplateV2):
         batch_dict['spatial_features_stride'] = 1
         only_domain_loss = batch_dict.get('domain_target', False)
         for idx, cur_module in enumerate(self.module_list):
-            if only_domain_loss and idx == 3:
+            if only_domain_loss and cur_module.__class__.__name__ == 'CenterHeadRCNNV2':
                 break
             if str(cur_module) == "BEVFeatureExtractorV2()" or str(cur_module) == "PVRCNNHead()":
                 pred_dicts, recall_dicts = self.post_processing_for_refine(batch_dict)
@@ -51,7 +51,7 @@ class CenterPoint_PointPillar_RCNNV2(Detector3DTemplateV2):
 
     def get_training_loss(self, only_domain_loss=False):
         disp_dict, tb_dict = {}, {}
-        loss = torch.tensor(0.).cuda()
+        loss = torch.tensor(0.).cuda().item()
 
         if not only_domain_loss:
             loss_rpn, tb_dict = self.dense_head.get_loss()

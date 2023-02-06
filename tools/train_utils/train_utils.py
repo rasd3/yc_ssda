@@ -13,7 +13,7 @@ from pcdet.config import cfg
 
 def train_one_epoch(model, optimizer, train_loader, model_func, lr_scheduler, accumulated_iter, optim_cfg,
                     rank, tbar, total_it_each_epoch, dataloader_iter, tb_log=None, leave_pbar=False,
-                    cur_epoch=0, total_epochs=0,
+                    cur_epoch=0, total_epochs=0, retain_graph=False,
                     ):
     if total_it_each_epoch == len(train_loader):
         dataloader_iter = iter(train_loader)
@@ -146,9 +146,9 @@ def train_one_epoch(model, optimizer, train_loader, model_func, lr_scheduler, ac
 
 
 def train_one_epoch_dann(model, optimizer, train_loader, model_func, lr_scheduler, accumulated_iter, optim_cfg,
-                    rank, tbar, total_it_each_epoch, dataloader_iter, tb_log=None, leave_pbar=False,
-                    cur_epoch=0, total_epochs=0,
-                    ):
+                         rank, tbar, total_it_each_epoch, dataloader_iter, tb_log=None, leave_pbar=False,
+                         cur_epoch=0, total_epochs=0, retain_graph=False,
+                         ):
     if total_it_each_epoch == len(train_loader):
         dataloader_iter = iter(train_loader)
 
@@ -200,22 +200,25 @@ def train_one_epoch_dann(model, optimizer, train_loader, model_func, lr_schedule
         src_batch['domain_target'] = False
         src_batch['use_local_alignment'] = False
         src_loss, tb_dict, disp_dict = model_func(model, src_batch)
-        src_loss.backward()
-        clip_grad_norm_(model.parameters(), optim_cfg.GRAD_NORM_CLIP)
-        optimizer.step()
-
-        trg_batch['domain_target'] = True
-        trg_batch['use_local_alignment'] = False
-        trg_d_loss = torch.tensor(0.).cuda()
-        if use_domain_cls:
-            optimizer.zero_grad()
-            trg_d_loss, trg_tb_dict, trg_disp_dict = model_func(model, trg_batch)
-            trg_d_loss.backward()
+        src_loss.backward(retain_graph=retain_graph)
+        if not retain_graph:
             clip_grad_norm_(model.parameters(), optim_cfg.GRAD_NORM_CLIP)
             optimizer.step()
-            if 'domain_cls_loss' in trg_tb_dict:
-                tb_dict['trg_domain_cls_loss'] = trg_tb_dict['domain_cls_loss']
-                tb_dict['src_domain_cls_loss'] = tb_dict.pop('domain_cls_loss')
+
+        with torch.autograd.set_detect_anomaly(True):
+            trg_batch['domain_target'] = True
+            trg_batch['use_local_alignment'] = False
+            trg_d_loss = torch.tensor(0.).cuda()
+            if use_domain_cls:
+                if not retain_graph:
+                    optimizer.zero_grad()
+                trg_d_loss, trg_tb_dict, trg_disp_dict = model_func(model, trg_batch)
+                trg_d_loss.backward()
+                clip_grad_norm_(model.parameters(), optim_cfg.GRAD_NORM_CLIP)
+                optimizer.step()
+                if 'domain_cls_loss' in trg_tb_dict:
+                    tb_dict['trg_domain_cls_loss'] = trg_tb_dict['domain_cls_loss']
+                    tb_dict['src_domain_cls_loss'] = tb_dict.pop('domain_cls_loss')
 
         loss_node_adv = torch.tensor(0.).cuda()
         if use_local_alignment:
@@ -312,6 +315,7 @@ def train_model(model, optimizer, train_loader, model_func, lr_scheduler, optim_
                 dataloader_iter=dataloader_iter,
                 cur_epoch=cur_epoch,
                 total_epochs=total_epochs,
+                retain_graph=cfg.DATA_CONFIG.get('RETAIN_GRAPH', False)
             )
 
             # save trained model

@@ -51,6 +51,7 @@ class KittiDataset(DatasetTemplate):
         if self.logger is not None:
             self.logger.info('Total samples for KITTI dataset: %d' % (len(self.kitti_infos)))
 
+
     def include_kitti_data(self, mode):
         if self.logger is not None:
             self.logger.info('Loading KITTI dataset')
@@ -351,16 +352,29 @@ class KittiDataset(DatasetTemplate):
                                  single_pred_dict['score'][idx]), file=f)
 
         return annos
+    
+    def kitti_eval(self, eval_det_annos, eval_gt_annos):
+        from .kitti_object_eval_python import eval as kitti_eval
+        ap_result_str, ap_dict = kitti_eval.get_official_eval_result(eval_gt_annos, eval_det_annos, class_names)
+
+        return ap_result_str, ap_dict
+
+    def nuscene_eval(self, eval_det_annos, eval_gt_annos):
+        ap_dict = {}
+        return ap_result_str, ap_dict
 
     def evaluation(self, det_annos, class_names, **kwargs):
         if 'annos' not in self.kitti_infos[0].keys():
             return None, {}
 
-        from .kitti_object_eval_python import eval as kitti_eval
-
         eval_det_annos = copy.deepcopy(det_annos)
         eval_gt_annos = [copy.deepcopy(info['annos']) for info in self.kitti_infos]
-        ap_result_str, ap_dict = kitti_eval.get_official_eval_result(eval_gt_annos, eval_det_annos, class_names)
+
+        if kwargs['eval_metric'] == 'kitti':
+            ap_result_str, ap_dict = self.kitti_eval(eval_det_annos, eval_gt_annos)
+        elif kwargs['eval_metric'] == 'nuscenes':
+            ap_result_str, ap_dict = self.nuscene_eval(eval_det_annos, eval_gt_annos)
+
 
         return ap_result_str, ap_dict
 

@@ -10,6 +10,46 @@ DATA_CONFIG:
     PRED_VELOCITY: False
     BALANCED_RESAMPLING: True #False
 
+    INFO_PATH: {
+        'train': [nuscenes_infos_10sweeps_train_train_0.25_1.pkl],
+        'test': [nuscenes_infos_10sweeps_val_train_0.25_1.pkl],
+    }
+
+    DATA_AUGMENTOR:
+        DISABLE_AUG_LIST: ['placeholder']
+        AUG_CONFIG_LIST:
+            - NAME: gt_sampling
+              DB_INFO_PATH:
+                  - nuscenes_dbinfos_10sweeps_train_0.25_1.pkl
+              PREPARE: {
+                 filter_by_min_points: [
+                     'car:5', 'bicycle:5', 'pedestrian:5'
+                 ],
+              }
+
+              SAMPLE_GROUPS: [
+                  'car:2', 'bicycle:6', 'pedestrian:2'
+              ]
+
+              NUM_POINT_FEATURES: 5
+              DATABASE_WITH_FAKELIDAR: False
+              REMOVE_EXTRA_WIDTH: [0.0, 0.0, 0.0]
+              LIMIT_WHOLE_SCENE: True
+              
+            - NAME: random_world_flip
+              ALONG_AXIS_LIST: ['x', 'y']
+
+            - NAME: random_world_rotation
+              WORLD_ROT_ANGLE: [-0.78539816, 0.78539816]
+
+            - NAME: random_world_scaling
+              WORLD_SCALE_RANGE: [0.9, 1.1]
+            
+            - NAME: normalize_object_size
+              SIZE_RES: [[-0.75, -0.34, -0.2], 
+                [-0.14, -0.12, 0.34], 
+                [0.09, -0.06, 0.0]]
+
     DATA_PROCESSOR:
         -   NAME: mask_points_and_boxes_outside_range
             REMOVE_OUTSIDE_BOXES: True

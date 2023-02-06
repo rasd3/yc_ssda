@@ -67,10 +67,16 @@ def parse_config():
     if args.set_cfgs is not None:
         cfg_from_list(args.set_cfgs, cfg)
 
-    cfg.DATA_CONFIG.DATA_SPLIT['train'] = args.split
+    if 'SSDA' in cfg.DATA_CONFIG.DATASET or 'DANN' in cfg.DATA_CONFIG.DATASET:
+        cfg.DATA_CONFIG.TRG_DATASET.DATA_SPLIT['train'] = args.split
+    else:
+        cfg.DATA_CONFIG.DATA_SPLIT['train'] = args.split
     #  assert cfg.DATA_CONFIG.DATA_AUGMENTOR.AUG_CONFIG_LIST[0].NAME == 'gt_sampling'  # hardcode
     if args.dbinfos is not None:
-        cfg.DATA_CONFIG.DATA_AUGMENTOR.AUG_CONFIG_LIST[0].DB_INFO_PATH = [args.dbinfos]
+        if 'SSDA' in cfg.DATA_CONFIG.DATASET or 'DANN' in cfg.DATA_CONFIG.DATASET:
+            cfg.DATA_CONFIG.TRG_DATASET.DATA_AUGMENTOR.AUG_CONFIG_LIST[0].DB_INFO_PATH = [args.dbinfos]
+        else:
+            cfg.DATA_CONFIG.DATA_AUGMENTOR.AUG_CONFIG_LIST[0].DB_INFO_PATH = [args.dbinfos]
     if args.repeat is not None:
         cfg.DATA_CONFIG.REPEAT = args.repeat
 

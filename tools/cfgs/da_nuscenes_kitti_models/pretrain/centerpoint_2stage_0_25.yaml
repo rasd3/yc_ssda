@@ -1,8 +1,8 @@
-CLASS_NAMES: ['car', 'truck', 'bus', 'motorcycle', 'pedestrian']
+CLASS_NAMES: ['car', 'bicycle', 'pedestrian']
 
 DATA_CONFIG:
     _BASE_CONFIG_: cfgs/dataset_configs/da_nuscenes_kitti_dataset.yaml
-    CLASS_NAMES: ['car', 'truck', 'bus', 'motorcycle', 'pedestrian']
+    CLASS_NAMES: ['car', 'bicycle', 'pedestrian']
 
     MAX_SWEEPS: 10
     REPEAT: 1
@@ -23,14 +23,12 @@ DATA_CONFIG:
                   - nuscenes_dbinfos_10sweeps_train_0.25_1.pkl
               PREPARE: {
                  filter_by_min_points: [
-                     'car:5','truck:5', 'construction_vehicle:5', 'bus:5', 'trailer:5',
-                     'barrier:5', 'motorcycle:5', 'bicycle:5', 'pedestrian:5', 'traffic_cone:5'
+                     'car:5', 'bicycle:5', 'pedestrian:5'
                  ],
               }
 
               SAMPLE_GROUPS: [
-                  'car:2','truck:3', 'construction_vehicle:7', 'bus:4', 'trailer:6',
-                  'barrier:2', 'motorcycle:6', 'bicycle:6', 'pedestrian:2', 'traffic_cone:2'
+                  'car:2', 'bicycle:6', 'pedestrian:2'
               ]
 
               NUM_POINT_FEATURES: 5

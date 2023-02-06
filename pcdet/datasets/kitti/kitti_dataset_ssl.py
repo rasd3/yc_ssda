@@ -24,7 +24,20 @@ class KittiDatasetSSL(DatasetTemplate):
         super().__init__(
             dataset_cfg=dataset_cfg, class_names=class_names, training=training, root_path=root_path, logger=logger
         )
+        map_name_to_kitti = {
+            'car': 'Car',
+            'pedestrian': 'Pedestrian',
+            'truck': 'Truck',
+            'bus': 'Bus',
+            'motorcycle': 'Motorcycle',
+            'bicycle': 'Cyclist'
+        }
+        self.class_names_k = copy.deepcopy(self.class_names)
+        for idx in range(len(self.class_names_k)):
+            if self.class_names_k[idx] in map_name_to_kitti:
+                self.class_names_k[idx] = map_name_to_kitti[self.class_names_k[idx]]
         self.split = self.dataset_cfg.DATA_SPLIT[self.mode]
+        self.shift_coor = self.dataset_cfg.get('SHIFT_COOR', None)
         self.root_split_path = self.root_path / ('training' if self.split != 'test' else 'testing')
         self.repeat = self.dataset_cfg.REPEAT
 
@@ -62,6 +75,9 @@ class KittiDatasetSSL(DatasetTemplate):
                 print("full set", len(self.unlabeled_kitti_infos))
             self.kitti_infos = temp
             assert len(self.kitti_infos) == len(self.sample_id_list)
+            self.labeled_infos = self.sample_index_list
+            self.unlabeled_infos = self.unlabeled_kitti_infos
+        self.labeled_infos = self.kitti_infos
 
         if self.logger is not None:
             self.logger.info('Total samples for KITTI dataset: %d' % (len(self.kitti_infos)))
@@ -86,7 +102,7 @@ class KittiDatasetSSL(DatasetTemplate):
 
     def set_split(self, split):
         super().__init__(
-            dataset_cfg=self.dataset_cfg, class_names=self.class_names, training=self.training, root_path=self.root_path, logger=self.logger
+            dataset_cfg=self.dataset_cfg, class_names=self.class_names_k, training=self.training, root_path=self.root_path, logger=self.logger
         )
         self.split = split
         self.root_split_path = self.root_path / ('training' if self.split != 'test' else 'testing')
@@ -355,15 +371,27 @@ class KittiDatasetSSL(DatasetTemplate):
 
         return annos
 
+    def kitti_eval(self, eval_det_annos, eval_gt_annos):
+        from .kitti_object_eval_python import eval as kitti_eval
+        ap_result_str, ap_dict = kitti_eval.get_official_eval_result(eval_gt_annos, eval_det_annos, class_names)
+
+        return ap_result_str, ap_dict
+
+    def nuscene_eval(self, eval_det_annos, eval_gt_annos):
+        ap_dict = {}
+        return ap_result_str, ap_dict
+
     def evaluation(self, det_annos, class_names, **kwargs):
         if 'annos' not in self.kitti_infos[0].keys():
             return None, {}
 
-        from .kitti_object_eval_python import eval as kitti_eval
-
         eval_det_annos = copy.deepcopy(det_annos)
         eval_gt_annos = [copy.deepcopy(info['annos']) for info in self.kitti_infos]
-        ap_result_str, ap_dict = kitti_eval.get_official_eval_result(eval_gt_annos, eval_det_annos, class_names)
+
+        if kwargs['eval_metric'] == 'kitti':
+            ap_result_str, ap_dict = self.kitti_eval(eval_det_annos, eval_gt_annos)
+        elif kwargs['eval_metric'] == 'nuscenes':
+            ap_result_str, ap_dict = self.nuscene_eval(eval_det_annos, eval_gt_annos)
 
         return ap_result_str, ap_dict
 
@@ -385,6 +413,9 @@ class KittiDatasetSSL(DatasetTemplate):
 
         info = copy.deepcopy(self.kitti_infos[index])
         data_dict_labeled = self.get_item_single(info)
+        if self.shift_coor:
+            data_dict_labeled['points'][:, :3] += np.array(self.shift_coor, dtype=np.float32)
+            data_dict_labeled['gt_boxes'][:, :3] += np.array(self.shift_coor, dtype=np.float32)
 
         if self.training:
             #  index_unlabeled = np.random.choice(self.unlabeled_index_list, 1)[0]
@@ -392,6 +423,9 @@ class KittiDatasetSSL(DatasetTemplate):
             info_unlabeled = copy.deepcopy(self.unlabeled_kitti_infos[index_unlabeled])
 
             data_dict_unlabeled = self.get_item_single(info_unlabeled, no_db_sample=True)
+            if self.shift_coor:
+                data_dict_unlabeled['points'][:, :3] += np.array(self.shift_coor, dtype=np.float32)
+                data_dict_unlabeled['gt_boxes'][:, :3] += np.array(self.shift_coor, dtype=np.float32)
             return [data_dict_labeled, data_dict_unlabeled]
         else:
             return data_dict_labeled
@@ -505,7 +539,7 @@ class KittiDatasetSSL(DatasetTemplate):
         """
         if self.training:
             assert 'gt_boxes' in data_dict, 'gt_boxes should be provided for training'
-            gt_boxes_mask = np.array([n in self.class_names for n in data_dict['gt_names']], dtype=np.bool_)
+            gt_boxes_mask = np.array([n in self.class_names_k for n in data_dict['gt_names']], dtype=np.bool_)
 
             data_dict = self.data_augmentor.forward(
                 data_dict={
@@ -527,13 +561,13 @@ class KittiDatasetSSL(DatasetTemplate):
             data_dict['gt_boxes_ema'] = gt_boxes_ema
 
         if data_dict.get('gt_boxes', None) is not None:
-            selected = common_utils.keep_arrays_by_name(data_dict['gt_names'], self.class_names)
+            selected = common_utils.keep_arrays_by_name(data_dict['gt_names'], self.class_names_k)
             data_dict['gt_boxes'] = data_dict['gt_boxes'][selected]
             
             if self.training:
                 data_dict['gt_boxes_ema'] = data_dict['gt_boxes_ema'][selected]
             data_dict['gt_names'] = data_dict['gt_names'][selected]
-            gt_classes = np.array([self.class_names.index(n) + 1 for n in data_dict['gt_names']], dtype=np.int32)
+            gt_classes = np.array([self.class_names_k.index(n) + 1 for n in data_dict['gt_names']], dtype=np.int32)
             gt_boxes = np.concatenate((data_dict['gt_boxes'], gt_classes.reshape(-1, 1).astype(np.float32)), axis=1)
             data_dict['gt_boxes'] = gt_boxes
             if self.training:

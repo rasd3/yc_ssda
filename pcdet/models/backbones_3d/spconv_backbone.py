@@ -217,7 +217,7 @@ class VoxelResBackBone8x(nn.Module):
         )
         self.num_point_features = 128
 
-    def forward(self, batch_dict):
+    def forward(self, batch_dict, disable_gt_roi_when_pseudo_labeling=False):
         """
         Args:
             batch_dict:

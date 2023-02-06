@@ -1,32 +1,93 @@
 CLASS_NAMES: ['car', 'bicycle', 'pedestrian']
 
 DATA_CONFIG:
-    _BASE_CONFIG_: cfgs/dataset_configs/da_nuscenes_kitti_dataset.yaml
+    _BASE_CONFIG_: cfgs/dataset_configs/da_nuscenes_kitti_dann_dataset.yaml
     CLASS_NAMES: ['car', 'bicycle', 'pedestrian']
 
     MAX_SWEEPS: 10
     REPEAT: 1
+    DANN_DATA_SPLIT: True
 
     PRED_VELOCITY: False
     BALANCED_RESAMPLING: True #False
+    RETAIN_GRAPH: True
 
-    DATA_PROCESSOR:
-        -   NAME: mask_points_and_boxes_outside_range
-            REMOVE_OUTSIDE_BOXES: True
+    SRC_DATASET:
+        INFO_PATH: {
+            'train': [nuscenes_infos_10sweeps_train_train_0.25_1.pkl],
+            'test': [nuscenes_infos_10sweeps_val_train_0.25_1.pkl],
+        }
 
-        - NAME: shuffle_points
-          SHUFFLE_ENABLED: {
-            'train': True,
-            'test': True
-          }
+        DATA_AUGMENTOR:
+            DISABLE_AUG_LIST: ['placeholder']
+            AUG_CONFIG_LIST:
+                - NAME: gt_sampling
+                  DB_INFO_PATH:
+                      - nuscenes_dbinfos_10sweeps_train_0.25_1.pkl
+                  PREPARE: {
+                     filter_by_min_points: [
+                         'car:5', 'bicycle:5', 'pedestrian:5'
+                     ],
+                  }
 
-        - NAME: transform_points_to_voxels
-          VOXEL_SIZE: [0.075, 0.075, 0.2] #nuscenes
-          MAX_POINTS_PER_VOXEL: 10
-          MAX_NUMBER_OF_VOXELS: {
-            'train': 120000,
-            'test': 160000
-          }
+                  SAMPLE_GROUPS: [
+                      'car:2', 'bicycle:6', 'pedestrian:2'
+                  ]
+
+                  NUM_POINT_FEATURES: 5
+                  DATABASE_WITH_FAKELIDAR: False
+                  REMOVE_EXTRA_WIDTH: [0.0, 0.0, 0.0]
+                  LIMIT_WHOLE_SCENE: True
+                  
+                - NAME: random_world_flip
+                  ALONG_AXIS_LIST: ['x', 'y']
+
+                - NAME: random_world_rotation
+                  WORLD_ROT_ANGLE: [-0.78539816, 0.78539816]
+
+                - NAME: random_world_scaling
+                  WORLD_SCALE_RANGE: [0.9, 1.1]
+                
+                - NAME: normalize_object_size
+                  SIZE_RES: [[-0.75, -0.34, -0.2], 
+                    [-0.14, -0.12, 0.34], 
+                    [0.09, -0.06, 0.0]]
+
+        DATA_PROCESSOR:
+            -   NAME: mask_points_and_boxes_outside_range
+                REMOVE_OUTSIDE_BOXES: True
+
+            - NAME: shuffle_points
+              SHUFFLE_ENABLED: {
+                'train': True,
+                'test': True
+              }
+
+            - NAME: transform_points_to_voxels
+              VOXEL_SIZE: [0.075, 0.075, 0.2] #nuscenes
+              MAX_POINTS_PER_VOXEL: 10
+              MAX_NUMBER_OF_VOXELS: {
+                'train': 60000,
+                'test': 80000
+              }
+    TRG_DATASET:
+        DATA_PROCESSOR:
+            - NAME: mask_points_and_boxes_outside_range
+              REMOVE_OUTSIDE_BOXES: True
+
+            - NAME: shuffle_points
+              SHUFFLE_ENABLED: {
+                'train': True,
+                'test': True
+              }
+
+            - NAME: transform_points_to_voxels
+              VOXEL_SIZE: [0.075, 0.075, 0.2] #nuscenes
+              MAX_POINTS_PER_VOXEL: 10
+              MAX_NUMBER_OF_VOXELS: {
+                'train': 60000,
+                'test': 80000
+              }
           
 
 
@@ -45,6 +106,14 @@ MODEL:
 
     BACKBONE_2D:
         NAME: BaseBEVBackbone
+
+        USE_DOMAIN_CLASSIFIER: True
+        DC_VERSION: POOL_1
+        LOSS_CONFIG:
+            LOSS_DC: NLL
+            LOSS_WEIGHTS: {
+                'dc_weight': 1.0,
+            }
 
         LAYER_NUMS: [5, 5]
         LAYER_STRIDES: [1, 2]
@@ -159,7 +228,7 @@ MODEL:
 
 
 OPTIMIZATION:
-    BATCH_SIZE_PER_GPU: 8 #sever : 10 #conv 8
+    BATCH_SIZE_PER_GPU: 4 #sever : 10 #conv 8
     EVAL_BATCH_SIZE_PER_GPU: 8 #sever : 10 #conv 8
     NUM_EPOCHS: 20
 

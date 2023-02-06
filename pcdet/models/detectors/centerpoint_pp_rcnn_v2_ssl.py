@@ -48,8 +48,10 @@ class CenterPoint_PointPillar_RCNNV2_SSL(Detector3DTemplateV2):
                                               b][:, 1:4].cpu().numpy()
                 gt_boxes = batch_dict['gt_boxes'][b].cpu().numpy().copy()
                 gt_boxes[:, 6] = -gt_boxes[:, 6]
+                det_pt = nuscene_vis(points)
                 det = nuscene_vis(points, gt_boxes)
                 cv2.imwrite('test_%02d.png' % b, det)
+                cv2.imwrite('test_%02d_pt.png' % b, det_pt)
             breakpoint()
         if self.training:
             mask = batch_dict['mask'].view(-1)

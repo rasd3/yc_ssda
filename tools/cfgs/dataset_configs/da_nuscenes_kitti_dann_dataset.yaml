@@ -1,4 +1,5 @@
 DATASET: 'DADatasetDANN'
+REPEAT: 1
 
 DATA_SPLIT: {
     'train': train,
@@ -6,9 +7,9 @@ DATA_SPLIT: {
 }
 
 SRC_DATASET: 
-    _BASE_CONFIG_: cfgs/dataset_configs/nuscenes_dataset.yaml
+    _BASE_CONFIG_: cfgs/dataset_configs/da_nuscenes_kitti_dataset.yaml
     REPEAT: 1
-    CLASS_NAMES: ['car', 'truck', 'bus', 'motorcycle', 'pedestrian']
+    CLASS_NAMES: ['car', 'bicycle', 'pedestrian']
     MAX_SWEEPS: 10
     PRED_VELOCITY: False
     BALANCED_RESAMPLING: True
@@ -18,25 +19,22 @@ SRC_DATASET:
         src_feature_list: ['x', 'y', 'z', 'intensity', 'timestamp'],
     }
     INFO_PATH: {
-        'train': [nuscenes_infos_10sweeps_train_train_0.50_1.pkl],
+        'train': [nuscenes_infos_10sweeps_train.pkl],
         'test': [nuscenes_infos_10sweeps_val.pkl],
     }
+
 TRG_DATASET:
-    _BASE_CONFIG_: cfgs/dataset_configs/omega_dataset.yaml
-    CLASS_NAMES: ['car', 'truck', 'bus', 'motorcycle', 'pedestrian']
-    REPEAT: 3
-    SHIFT_COOR: [0.0, 0.0, -1.8]
-    DATA_PATH: '../data/omega'
-    VERSION: 'v0.5-omega-trainval'
+    _BASE_CONFIG_: cfgs/dataset_configs/kitti_dataset.yaml
+    POINT_CLOUD_RANGE: [-70.8, -70.8, -5.0, 70.8, 70.8, 3.0]
+    REPEAT: 5
+    CLASS_NAMES: ['Car', 'Cyclist', 'Pedestrian']
+    SHIFT_COOR: [0.0, 0.0, -0.2]
+    DATA_PATH: '../data/kitti'
     MAX_SWEEPS: 1
     PRED_VELOCITY: False
-    BALANCED_RESAMPLING: True
+    BALANCED_RESAMPLING: False
     POINT_FEATURE_ENCODING: {
         encoding_type: absolute_coordinates_encoding,
         used_feature_list: ['x', 'y', 'z'],
         src_feature_list: ['x', 'y', 'z', 'intensity', 'timestamp'],
-    }
-    INFO_PATH: {
-        'train': [omega_infos_1sweeps_train.pkl],
-        'test': [omega_infos_1sweeps_val.pkl],
     }

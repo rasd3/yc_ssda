@@ -287,6 +287,7 @@ class NuScenesDataset(DatasetTemplate):
             'bus': 'Bus',
             'motorcycle': 'Motorcycle',
             'pedestrian': 'Pedestrian',
+            'bicycle': 'Cyclist',
         }
 
         def transform_to_kitti_format(annos,

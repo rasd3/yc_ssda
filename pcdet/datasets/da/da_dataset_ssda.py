@@ -204,14 +204,14 @@ class DADatasetSSDA(torch_data.Dataset):
         src_root_path = self.dataset_cfg.SRC_DATASET.get('DATA_PATH', None)
         self.src_dataset = __all__[dataset_cfg.SRC_DATASET.DATASET](
             dataset_cfg=dataset_cfg.SRC_DATASET,
-            class_names=class_names,
+            class_names=dataset_cfg.SRC_DATASET.CLASS_NAMES,
             root_path=Path(src_root_path) if src_root_path is not None else None,
             training=training,
             logger=logger,
         )
         self.trg_dataset = __all__[dataset_cfg.TRG_DATASET.DATASET](
             dataset_cfg=dataset_cfg.TRG_DATASET,
-            class_names=class_names,
+            class_names=dataset_cfg.TRG_DATASET.CLASS_NAMES,
             root_path=Path(self.dataset_cfg.TRG_DATASET.DATA_PATH),
             training=training,
             logger=logger,
@@ -369,7 +369,8 @@ class DADatasetSSDA(torch_data.Dataset):
         for index, box_dict in enumerate(pred_dicts):
             single_pred_dict = generate_single_sample_dict(box_dict, self.trg_dataset.shift_coor)
             single_pred_dict['frame_id'] = batch_dict['frame_id'][index]
-            single_pred_dict['metadata'] = batch_dict['metadata'][index]
+            if 'metadata' in batch_dict:
+                single_pred_dict['metadata'] = batch_dict['metadata'][index]
             annos.append(single_pred_dict)
 
         return annos
