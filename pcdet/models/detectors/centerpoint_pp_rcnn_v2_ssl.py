@@ -114,7 +114,8 @@ class CenterPoint_PointPillar_RCNNV2_SSL(Detector3DTemplateV2):
                 batch_size = batch_dict['batch_size']
                 if self.use_adaptive_thres:
                     # calculate if pred boxes match with gt boxes in labeled data
-                    C_THRES = torch.tensor([0.7, 0.7, 0.7, 0.5, 0.5]).cuda()
+                    #  C_THRES = torch.tensor([0.7, 0.7, 0.7, 0.5, 0.5]).cuda()
+                    C_THRES = torch.tensor([0.7, 0.5, 0.5]).cuda()
                     ind = unlabeled_mask[0] - 1
                     tl_num_gt = batch_dict_ema['gt_boxes'][ind].sum(1).nonzero().shape[0]
                     tl_gt_boxes = batch_dict_ema['gt_boxes'][ind][:tl_num_gt]

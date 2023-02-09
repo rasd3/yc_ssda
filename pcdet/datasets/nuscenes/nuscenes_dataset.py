@@ -278,8 +278,9 @@ class NuScenesDataset(DatasetTemplate):
 
         return annos
 
-    def kitti_eval(self, eval_det_annos, eval_gt_annos, class_names):
+    def kitti_eval(self, eval_det_annos, class_names):
         from ..kitti.kitti_object_eval_python import eval_omega as kitti_eval
+        eval_gt_annos = copy.deepcopy(self.infos)
 
         map_name_to_kitti = {
             'car': 'Car',
@@ -428,9 +429,9 @@ class NuScenesDataset(DatasetTemplate):
     def evaluation(self, det_annos, class_names, **kwargs):
         if kwargs['eval_metric'] == 'kitti':
             eval_det_annos = copy.deepcopy(det_annos)
-            eval_gt_annos = copy.deepcopy(self.infos)
-            return self.kitti_eval(eval_det_annos, eval_gt_annos, class_names)
+            return self.kitti_eval(eval_det_annos, class_names, **kwargs)
         elif kwargs['eval_metric'] == 'nuscenes':
+            eval_det_annos = copy.deepcopy(det_annos)
             return self.nuscene_eval(det_annos, class_names, **kwargs)
         else:
             raise NotImplementedError

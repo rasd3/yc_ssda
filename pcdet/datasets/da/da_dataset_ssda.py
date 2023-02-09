@@ -503,13 +503,15 @@ class DADatasetDANN(DADatasetSSDA):
         if kwargs['eval_metric'] == 'kitti':
             eval_det_annos = copy.deepcopy(det_annos)
             if self.target:
-                eval_gt_annos = copy.deepcopy(self.trg_dataset.infos)
-                return self.trg_dataset.kitti_eval(eval_det_annos, eval_gt_annos, class_names)
+                return self.trg_dataset.kitti_eval(eval_det_annos, class_names)
             else:
-                eval_gt_annos = copy.deepcopy(self.src_dataset.infos)
-                return self.src_dataset.kitti_eval(eval_det_annos, eval_gt_annos, class_names)
+                return self.src_dataset.kitti_eval(eval_det_annos, class_names)
         elif kwargs['eval_metric'] == 'nuscenes':
-            return self.src_dataset.nuscene_eval(det_annos, class_names, **kwargs)
+            eval_det_annos = copy.deepcopy(det_annos)
+            if self.target:
+                return self.trg_dataset.kitti_eval(eval_det_annos, class_names, **kwargs)
+            else:
+                return self.src_dataset.nuscene_eval(eval_det_annos, class_names, **kwargs)
         else:
             raise NotImplementedError
 

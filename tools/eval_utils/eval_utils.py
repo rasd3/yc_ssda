@@ -54,7 +54,7 @@ def eval_one_epoch(cfg, model, dataloader, epoch_id, logger, dist_test=False, sa
         model.apply(set_ds_target)
 
     ret_dict = {}
-    if True: #osp.isfile(result_dir / 'result.pkl'):
+    if False: #osp.isfile(result_dir / 'result.pkl'):
         with open('det_annos.pkl', 'rb') as f:
             det_annos = pickle.load(f)
     else:

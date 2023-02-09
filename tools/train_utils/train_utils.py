@@ -247,17 +247,18 @@ def train_one_epoch_dann(model, optimizer, train_loader, model_func, lr_schedule
         loss_mgfa = torch.tensor(0.).cuda()
         if use_mgfa:
             sigma_list = [0.01, 0.1, 1, 10, 100]
-            src_mgfa_feats = disp_dict['mgfa_feats']
-            trg_mgfa_feats = trg_disp_dict['mgfa_feats']
+            src_mgfa_feats = [f.clone() for f in disp_dict['mgfa_feats']]
+            trg_mgfa_feats = [f.clone() for f in trg_disp_dict['mgfa_feats']]
             disp_dict.pop('mgfa_feats')
             trg_disp_dict.pop('mgfa_feats')
             for idx in range(len(src_mgfa_feats)):
-                loss_mgfa_i = mmd.mix_rbf_mmd2(src_mgfa_feats[idx], 
-                                               trg_mgfa_feats[idx],
-                                               sigma_list)
+                loss_mgfa_i = 1 * mmd.mix_rbf_mmd2(src_mgfa_feats[idx], 
+                                                   trg_mgfa_feats[idx],
+                                                   sigma_list)
                 loss_mgfa = loss_mgfa + loss_mgfa_i
-            loss_mgfa_sum = loss_mgfa / len(src_mgfa_feats) + trg_d_loss
-            loss_mgfa_sum.backward()
+            trg_d_loss = loss_mgfa + trg_d_loss
+            trg_d_loss.backward()
+            clip_grad_norm_(model.parameters(), optim_cfg.GRAD_NORM_CLIP)
             optimizer.step()
 
         accumulated_iter += 1

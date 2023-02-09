@@ -185,7 +185,7 @@ def main():
     ckpt_dir = args.ckpt_dir if args.ckpt_dir is not None else output_dir / 'ckpt'
 
     cfg.DATA_CONFIG.TARGET = False
-    if 'DANN' in cfg.DATA_CONFIG.DATASET:
+    if False and 'DANN' in cfg.DATA_CONFIG.DATASET:
         # for evaluate target dataset
         cfg.DATA_CONFIG.TARGET = True
         trg_test_set, trg_test_loader, trg_sampler = build_dataloader(

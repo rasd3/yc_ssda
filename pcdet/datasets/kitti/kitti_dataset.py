@@ -309,14 +309,13 @@ class KittiDataset(DatasetTemplate):
             if pred_scores.shape[0] == 0:
                 return pred_dict
 
-            calib = batch_dict['calib'][batch_index]
-            image_shape = batch_dict['image_shape'][batch_index]
-
             if self.dataset_cfg.get('SHIFT_COOR', None):
                 pred_boxes[:, 0:3] -= self.dataset_cfg.SHIFT_COOR
 
             # BOX FILTER
             if self.dataset_cfg.get('TEST', None) and self.dataset_cfg.TEST.BOX_FILTER['FOV_FILTER']:
+                calib = batch_dict['calib'][batch_index]
+                image_shape = batch_dict['image_shape'][batch_index]
                 box_preds_lidar_center = pred_boxes[:, 0:3]
                 pts_rect = calib.lidar_to_rect(box_preds_lidar_center)
                 fov_flag = self.get_fov_flag(pts_rect, image_shape, calib, margin=5)
@@ -324,20 +323,31 @@ class KittiDataset(DatasetTemplate):
                 pred_labels = pred_labels[fov_flag]
                 pred_scores = pred_scores[fov_flag]
 
-            pred_boxes_camera = box_utils.boxes3d_lidar_to_kitti_camera(pred_boxes, calib)
-            pred_boxes_img = box_utils.boxes3d_kitti_camera_to_imageboxes(
-                pred_boxes_camera, calib, image_shape=image_shape
-            )
 
             pred_dict['name'] = np.array(class_names)[pred_labels - 1]
-            pred_dict['alpha'] = -np.arctan2(-pred_boxes[:, 1], pred_boxes[:, 0]) + pred_boxes_camera[:, 6]
-            pred_dict['bbox'] = pred_boxes_img
-            pred_dict['dimensions'] = pred_boxes_camera[:, 3:6]
-            pred_dict['location'] = pred_boxes_camera[:, 0:3]
-            pred_dict['rotation_y'] = pred_boxes_camera[:, 6]
             pred_dict['score'] = pred_scores
             pred_dict['boxes_lidar'] = pred_boxes
             pred_dict['pred_labels'] = pred_labels
+
+            if 'calib' in batch_dict:
+                calib = batch_dict['calib'][batch_index]
+                image_shape = batch_dict['image_shape'][batch_index]
+                pred_boxes_camera = box_utils.boxes3d_lidar_to_kitti_camera(pred_boxes, calib)
+                pred_boxes_img = box_utils.boxes3d_kitti_camera_to_imageboxes(
+                    pred_boxes_camera, calib, image_shape=image_shape
+                )
+                pred_dict['bbox'] = pred_boxes_img
+                pred_dict['dimensions'] = pred_boxes_camera[:, 3:6]
+                pred_dict['location'] = pred_boxes_camera[:, 0:3]
+                pred_dict['rotation_y'] = pred_boxes_camera[:, 6]
+                pred_dict['alpha'] = -np.arctan2(-pred_boxes[:, 1], pred_boxes[:, 0]) + pred_boxes_camera[:, 6]
+            else:
+                pred_dict['bbox'] = np.zeros((0, 4))
+                pred_dict['dimensions'] = np.zeros((0, 3))
+                pred_dict['location'] = np.zeros((0, 3))
+                pred_dict['rotation_y'] = np.zeros((0, ))
+                pred_dict['alpha'] = np.zeros((0, ))
+                abcd = 1
 
             return pred_dict
 
@@ -381,7 +391,8 @@ class KittiDataset(DatasetTemplate):
                 if anno['name'][k] in map_name_to_kitti:
                     anno['name'][k] = map_name_to_kitti[anno['name'][k]]
                 else:
-                    anno['name'][k] = 'Person_sitting'
+                    pass
+                    #  anno['name'][k] = 'Person_sitting'
         for idx in range(len(class_names)):
             if class_names[idx] in map_name_to_kitti:
                 class_names[idx] = map_name_to_kitti[class_names[idx]]

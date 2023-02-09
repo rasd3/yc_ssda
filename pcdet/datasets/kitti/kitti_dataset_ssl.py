@@ -307,8 +307,7 @@ class KittiDatasetSSL(DatasetTemplate):
         with open(db_info_save_path, 'wb') as f:
             pickle.dump(all_db_infos, f)
 
-    @staticmethod
-    def generate_prediction_dicts(batch_dict, pred_dicts, class_names, output_path=None):
+    def generate_prediction_dicts(self, batch_dict, pred_dicts, class_names, output_path=None):
         """
         Args:
             batch_dict:
@@ -333,13 +332,16 @@ class KittiDatasetSSL(DatasetTemplate):
             }
             return ret_dict
 
-        def generate_single_sample_dict(batch_index, box_dict):
+        def generate_single_sample_dict(batch_index, box_dict, shift_coor):
             pred_scores = box_dict['pred_scores'].cpu().numpy()
             pred_boxes = box_dict['pred_boxes'].cpu().numpy()
             pred_labels = box_dict['pred_labels'].cpu().numpy()
             pred_dict = get_template_prediction(pred_scores.shape[0])
             if pred_scores.shape[0] == 0:
                 return pred_dict
+
+            if self.shift_coor:
+                pred_boxes[:, :3] -= np.array(self.shift_coor, dtype=np.float32)
 
             calib = batch_dict['calib'][batch_index]
             image_shape = batch_dict['image_shape'][batch_index]
@@ -364,7 +366,7 @@ class KittiDatasetSSL(DatasetTemplate):
         for index, box_dict in enumerate(pred_dicts):
             frame_id = batch_dict['frame_id'][index]
 
-            single_pred_dict = generate_single_sample_dict(index, box_dict)
+            single_pred_dict = generate_single_sample_dict(index, box_dict, self.shift_coor)
             single_pred_dict['frame_id'] = frame_id
             annos.append(single_pred_dict)
 

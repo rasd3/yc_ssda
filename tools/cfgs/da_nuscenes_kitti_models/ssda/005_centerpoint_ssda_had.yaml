@@ -1,64 +1,54 @@
-CLASS_NAMES: ['Car', 'Cyclist', 'Pedestrian']
+CLASS_NAMES: ['car', 'bicycle', 'pedestrian']
 
 DATA_CONFIG:
-    _BASE_CONFIG_: cfgs/dataset_configs/kitti_dataset.yaml
-    POINT_CLOUD_RANGE: [-70.8, -70.8, -5.0, 70.8, 70.8, 3.0]
-    POINT_FEATURE_ENCODING: {
-        encoding_type: absolute_coordinates_encoding,
-        used_feature_list: ['x', 'y', 'z'],
-        src_feature_list: ['x', 'y', 'z', 'intensity'],
-    }
+    _BASE_CONFIG_: cfgs/dataset_configs/da_nuscenes_kitti_ssda.yaml
+    CLASS_NAMES: ['car', 'bicycle', 'pedestrian']
+          
+    SRC_DATASET: 
+        INFO_PATH: {
+            'train': [nuscenes_infos_10sweeps_train_train_0.25_1.pkl],
+            'test': [nuscenes_infos_10sweeps_val_train_0.25_1.pkl],
+        }
+        DATA_PROCESSOR:
+            - NAME: mask_points_and_boxes_outside_range
+              REMOVE_OUTSIDE_BOXES: True
 
-    DATA_AUGMENTOR:
-        DISABLE_AUG_LIST: ['placeholder']
-        AUG_CONFIG_LIST:
-            - NAME: gt_sampling
-              USE_ROAD_PLANE: True
-              DB_INFO_PATH:
-                  - kitti_dbinfos_train.pkl
-              PREPARE: {
-                 filter_by_min_points: ['Car:5', 'Pedestrian:5', 'Cyclist:5'],
-                 filter_by_difficulty: [-1],
+            - NAME: shuffle_points
+              SHUFFLE_ENABLED: {
+                'train': True,
+                'test': True
               }
 
-              SAMPLE_GROUPS: ['Car:15','Pedestrian:10', 'Cyclist:10']
-              NUM_POINT_FEATURES: 4
-              DATABASE_WITH_FAKELIDAR: False
-              REMOVE_EXTRA_WIDTH: [0.0, 0.0, 0.0]
-              LIMIT_WHOLE_SCENE: False
-              
-            - NAME: random_world_flip
-              ALONG_AXIS_LIST: ['x']
+            - NAME: transform_points_to_voxels
+              VOXEL_SIZE: [0.075, 0.075, 0.2]
+              MAX_POINTS_PER_VOXEL: 10
+              MAX_NUMBER_OF_VOXELS: {
+                'train': 120000,
+                'test': 160000
+              }
 
-            - NAME: random_world_rotation
-              WORLD_ROT_ANGLE: [-0.78539816, 0.78539816]
+    TRG_DATASET: 
+        SHIFT_COOR: [0.0, 0.0, -0.2]
+        U_SHIFT_COOR: True
+        DATA_PROCESSOR:
+            - NAME: mask_points_and_boxes_outside_range
+              REMOVE_OUTSIDE_BOXES: True
 
-            - NAME: random_world_scaling
-              WORLD_SCALE_RANGE: [0.95, 1.05]
-            
+            - NAME: shuffle_points
+              SHUFFLE_ENABLED: {
+                'train': True,
+                'test': True
+              }
 
-    DATA_PROCESSOR:
-        - NAME: mask_points_and_boxes_outside_range
-          REMOVE_OUTSIDE_BOXES: True
-
-        - NAME: shuffle_points
-          SHUFFLE_ENABLED: {
-            'train': True,
-            'test': False
-          }
-
-        - NAME: transform_points_to_voxels
-          VOXEL_SIZE: [0.075, 0.075, 0.2] #nuscenes
-          MAX_POINTS_PER_VOXEL: 10
-          MAX_NUMBER_OF_VOXELS: {
-            'train': 120000,
-            'test': 160000
-          }
-          
-
+            - NAME: transform_points_to_voxels
+              VOXEL_SIZE: [0.075, 0.075, 0.2]
+              MAX_POINTS_PER_VOXEL: 10
+              MAX_NUMBER_OF_VOXELS: { 'train': 120000,
+                'test': 160000
+              }
 
 MODEL:
-    NAME: CenterPoint_PointPillar_RCNNV2 #CenterPointRCNN # CenterPoint_PointPillar_RCNN  #PillarNet
+    NAME: CenterPoint_PointPillar_RCNNV2_SSL #CenterPointRCNN # CenterPoint_PointPillar_RCNN  #PillarNet
     
     VFE:
         NAME: MeanVFE
@@ -87,7 +77,7 @@ MODEL:
         USE_DIRECTION_CLASSIFIER: False 
 
         TARGET_ASSIGNER_CONFIG:
-            MAX_OBJS: 500
+            MAX_OBJS: 100
             VOXEL_SIZE: [0.075, 0.075, 0.2] #nuscenes
             OUT_SIZE_FACTOR: 8
             GAUSSIAN_OVERLAP: 0.1
@@ -125,14 +115,6 @@ MODEL:
             POOL_RADIUS: [0.8, 1.6]
             NSAMPLE: [16, 16]
             POOL_METHOD: max_pool
-        
-        NMS_CONFIG:
-            TRAIN:
-                NMS_TYPE: nms_gpu
-                MULTI_CLASSES_NMS: False
-                NMS_PRE_MAXSIZE: 9000
-                NMS_POST_MAXSIZE: 512
-                NMS_THRESH: 0.8
 
         TARGET_CONFIG:
             BOX_CODER: ResidualCoder
@@ -160,9 +142,6 @@ MODEL:
                 'code_weights': [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
             }
 
-    
-
-    
     POST_PROCESSING:
         RECALL_THRESH_LIST: [0.3, 0.5, 0.7]
         SCORE_THRESH: 0.1
@@ -183,12 +162,23 @@ MODEL:
             NMS_THRESH: 0.2
             NMS_PRE_MAXSIZE: 1000
             NMS_POST_MAXSIZE: 83
+    
+    THRESH: [0.4, 0.3, 0.3]
+    UNLABELED_SUPERVISE_CLS: True
+    UNLABELED_SUPERVISE_REFINE: True
+    UNLABELED_WEIGHT: 1.0
+    SEM_THRESH: [0.1, 0.0, 0.0]
+    SUPERVISE_MODE: 0
+    NO_NMS: False
+    USE_HYBRID_THRES: True
+    USE_ADAPTIVE_THRES: True
+    ADAPTIVE_THRES: 0.7
 
 
 OPTIMIZATION:
-    BATCH_SIZE_PER_GPU: 8 #sever : 10 #conv 8
-    EVAL_BATCH_SIZE_PER_GPU: 8 #sever : 10 #conv 8
-    NUM_EPOCHS: 80
+    BATCH_SIZE_PER_GPU: 1 #sever : 10
+    EVAL_BATCH_SIZE_PER_GPU: 1 #sever : 10
+    NUM_EPOCHS: 60
 
     OPTIMIZER: adam_onecycle
     LR: 0.001
