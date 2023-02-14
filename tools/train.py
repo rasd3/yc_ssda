@@ -46,6 +46,7 @@ def parse_config():
     parser.add_argument('--save_to_file', action='store_true', default=False, help='')
     parser.add_argument('--split', type=str, default='train')
     parser.add_argument('--repeat', type=int, default=None)
+    parser.add_argument('--trg_repeat', type=int, default=None)
     parser.add_argument('--thresh', type=str, default=None)
     parser.add_argument('--sem_thresh', type=str, default=None)
     # parser.add_argument('--score_thresh', type=float, default=0.0)
@@ -57,6 +58,7 @@ def parse_config():
     parser.add_argument('--no_nms', action='store_true', default=False)
     parser.add_argument('--supervise_mode', type=int, default=0)
     parser.add_argument('--dbinfos', type=str, default=None)
+    parser.add_argument('--eval_metric', choices=['kitti', 'nuscenes'], default='none', help='evaluation metric for da cfg')
 
     args = parser.parse_args()
 
@@ -67,18 +69,21 @@ def parse_config():
     if args.set_cfgs is not None:
         cfg_from_list(args.set_cfgs, cfg)
 
-    if 'SSDA' in cfg.DATA_CONFIG.DATASET or 'DANN' in cfg.DATA_CONFIG.DATASET:
+    if 'SSDA' in cfg.DATA_CONFIG.DATASET or 'DANN' in cfg.DATA_CONFIG.DATASET or 'CO' in cfg.DATA_CONFIG.DATASET:
         cfg.DATA_CONFIG.TRG_DATASET.DATA_SPLIT['train'] = args.split
     else:
         cfg.DATA_CONFIG.DATA_SPLIT['train'] = args.split
     #  assert cfg.DATA_CONFIG.DATA_AUGMENTOR.AUG_CONFIG_LIST[0].NAME == 'gt_sampling'  # hardcode
     if args.dbinfos is not None:
-        if 'SSDA' in cfg.DATA_CONFIG.DATASET or 'DANN' in cfg.DATA_CONFIG.DATASET:
+        if 'SSDA' in cfg.DATA_CONFIG.DATASET or 'DANN' in cfg.DATA_CONFIG.DATASET or 'CO' in cfg.DATA_CONFIG.DATASET:
             cfg.DATA_CONFIG.TRG_DATASET.DATA_AUGMENTOR.AUG_CONFIG_LIST[0].DB_INFO_PATH = [args.dbinfos]
         else:
             cfg.DATA_CONFIG.DATA_AUGMENTOR.AUG_CONFIG_LIST[0].DB_INFO_PATH = [args.dbinfos]
+
     if args.repeat is not None:
         cfg.DATA_CONFIG.REPEAT = args.repeat
+    if args.trg_repeat is not None:
+        cfg.DATA_CONFIG.TRG_DATASET.REPEAT = args.trg_repeat
 
     if args.thresh is not None:
         cfg.MODEL.THRESH = [float(x) for x in args.thresh.split(',')]
@@ -115,6 +120,9 @@ def main():
     else:
         assert args.batch_size % total_gpus == 0, 'Batch size should match the number of gpus'
         args.batch_size = args.batch_size // total_gpus
+
+    if args.eval_metric != 'none':
+        cfg.MODEL.POST_PROCESSING.EVAL_METRIC = args.eval_metric
 
     if args.eval_batch_size is None:
         args.eval_batch_size = cfg.OPTIMIZATION.EVAL_BATCH_SIZE_PER_GPU

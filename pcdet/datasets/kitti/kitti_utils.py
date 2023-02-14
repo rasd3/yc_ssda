@@ -122,7 +122,11 @@ cls_attr_dist = {
 }
 cls_label_map = {'car' : 'car', 
                  'bicycle': 'bicycle', 
-                 'pedestrian': 'pedestrian'}
+                 'pedestrian': 'pedestrian',
+                 'Car': 'car',
+                 'Cyclist': 'bicycle', 
+                 'Pedestrian': 'pedestrian'
+                 }
 
 def transform_annotations_to_kitti_format(annos, map_name_to_kitti=None, info_with_fakelidar=False):
     """
@@ -204,7 +208,11 @@ def transform_det_annos_to_nusc_gt_annos(gt_annos, det_annos):
 
     cls_gt_label_map = {'car' : 'car', 
                         'bicycle': 'bicycle', 
-                        'pedestrian': 'pedestrian'}
+                        'pedestrian': 'pedestrian',
+                        'Car': 'car',
+                        'Cyclist': 'bicycle', 
+                        'Pedestrian': 'pedestrian'
+                        }
     for idx, det in enumerate(gt_annos):
         annos = []
         box_list = gt_boxes_lidar_to_nusenes(det)

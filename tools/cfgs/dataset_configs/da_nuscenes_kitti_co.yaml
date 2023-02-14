@@ -1,0 +1,47 @@
+DATASET: 'DADatasetCO'
+REPEAT: 1
+
+DATA_SPLIT: {
+    'train': train,
+    'test': val
+}
+
+SRC_DATASET: 
+    _BASE_CONFIG_: cfgs/dataset_configs/nuscenes_dataset.yaml
+    CLASS_NAMES: ['car', 'bicycle', 'pedestrian']
+    POINT_CLOUD_RANGE: [-70.8, -70.8, -5.0, 70.8, 70.8, 3.0]
+    REPEAT: 1
+    MAX_SWEEPS: 10
+    PRED_VELOCITY: False
+    BALANCED_RESAMPLING: True
+    POINT_FEATURE_ENCODING: {
+        encoding_type: absolute_coordinates_encoding,
+        used_feature_list: ['x', 'y', 'z'],
+        src_feature_list: ['x', 'y', 'z', 'intensity', 'timestamp'],
+    }
+    DATA_AUGMENTOR:
+        DISABLE_AUG_LIST: ['placeholder']
+    INFO_PATH: {
+        'train': [nuscenes_infos_10sweeps_train.pkl],
+        'test': [nuscenes_infos_10sweeps_val.pkl],
+    }
+
+TRG_DATASET:
+    _BASE_CONFIG_: cfgs/dataset_configs/kitti_dataset.yaml
+    POINT_CLOUD_RANGE: [-70.8, -70.8, -5.0, 70.8, 70.8, 3.0]
+    REPEAT: 1
+    CLASS_NAMES: ['Car', 'Cyclist', 'Pedestrian']
+    SHIFT_COOR: [0.0, 0.0, -0.2]
+    DATA_PATH: '../data/kitti'
+    MAX_SWEEPS: 1
+    PRED_VELOCITY: False
+    BALANCED_RESAMPLING: True
+    POINT_FEATURE_ENCODING: {
+        encoding_type: absolute_coordinates_encoding,
+        used_feature_list: ['x', 'y', 'z'],
+        src_feature_list: ['x', 'y', 'z', 'intensity', 'timestamp'],
+    }
+    INFO_PATH: {
+        'train': [kitti_infos_train.pkl],
+        'test': [kitti_infos_val.pkl],
+    }

@@ -417,6 +417,25 @@ class KittiDatasetSSL(DatasetTemplate):
         from nuscenes.nuscenes import NuScenes
         from . import kitti_utils
         eval_gt_annos = [copy.deepcopy(info['annos']) for info in self.kitti_infos]
+
+        map_name_to_kitti = {
+            'Car': 'car',
+            'Pedestrian': 'pedestrian',
+            'Cyclist': 'bicycle',
+        }
+        for anno in eval_det_annos:
+            for k in range(anno['name'].shape[0]):
+                if anno['name'][k] in map_name_to_kitti:
+                    anno['name'][k] = map_name_to_kitti[anno['name'][k]]
+        for anno in eval_gt_annos:
+            for k in range(anno['name'].shape[0]):
+                if anno['name'][k] in map_name_to_kitti:
+                    anno['name'][k] = map_name_to_kitti[anno['name'][k]]
+
+        for idx in range(len(class_names)):
+            if class_names[idx] in map_name_to_kitti:
+                class_names[idx] = map_name_to_kitti[class_names[idx]]
+
         nusc = NuScenes(version='for_nusc_eval',
                         dataroot=str(self.root_path),
                         verbose=True)

@@ -1,5 +1,6 @@
 from pcdet.models.dense_heads.bev_feature_extractor_v2 import BEVFeatureExtractorV2
 from .detector3d_template_v2 import Detector3DTemplateV2
+from pcdet.utils.simplevis import nuscene_vis
 import numpy as np
 import torch
 
@@ -41,6 +42,21 @@ class CenterPoint_PointPillar_RCNNV2(Detector3DTemplateV2):
                 disp_dict['mgfa_feats'] = batch_dict['mgfa_feats']
             return ret_dict, tb_dict, disp_dict
         else:
+            if False:
+                import cv2
+                b_size = len(pred_dicts)
+                for b in range(b_size):
+                    points = batch_dict['points'][batch_dict['points'][:, 0] ==
+                                                  b][:, 1:4].cpu().numpy()
+                    gt_boxes = batch_dict['gt_boxes'][b].cpu().numpy().copy()
+                    mask = pred_dicts[b]['pred_scores'] > 0.3
+                    pd_boxes = pred_dicts[b]['pred_boxes'][mask].cpu().numpy().copy()
+                    gt_boxes[:, 6] = -gt_boxes[:, 6]
+                    pd_boxes[:, 6] = -pd_boxes[:, 6]
+                    det = nuscene_vis(points, gt_boxes)
+                    det_pd = nuscene_vis(points, pd_boxes)
+                    cv2.imwrite('test_%02d.png' % b, det)
+                    cv2.imwrite('test_%02d_pt.png' % b, det_pd)
             if False:
                 pred_dicts = self.post_process(batch_dict)
                 rois, roi_scores, roi_labels = self.reorder_rois_for_refining(batch_dict['batch_size'], pred_dicts)

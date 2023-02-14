@@ -1,51 +1,58 @@
-CLASS_NAMES: ['Car', 'Cyclist', 'Pedestrian']
+CLASS_NAMES: ['car', 'bicycle', 'pedestrian']
 
 DATA_CONFIG:
-    _BASE_CONFIG_: cfgs/dataset_configs/kitti_dataset.yaml
-    POINT_CLOUD_RANGE: [-70.8, -70.8, -5.0, 70.8, 70.8, 3.0]
-    SHIFT_COOR: [0.0, 0.0, -0.2]
-    POINT_FEATURE_ENCODING: {
-        encoding_type: absolute_coordinates_encoding,
-        used_feature_list: ['x', 'y', 'z'],
-        src_feature_list: ['x', 'y', 'z', 'intensity'],
-    }
+    _BASE_CONFIG_: cfgs/dataset_configs/da_nuscenes_kitti_dataset.yaml
+    CLASS_NAMES: ['car', 'bicycle', 'pedestrian']
+
+    MAX_SWEEPS: 10
+    REPEAT: 1
+
+    PRED_VELOCITY: False
+    BALANCED_RESAMPLING: True #False
 
     DATA_AUGMENTOR:
         DISABLE_AUG_LIST: ['placeholder']
         AUG_CONFIG_LIST:
             - NAME: gt_sampling
-              USE_ROAD_PLANE: True
               DB_INFO_PATH:
-                  - kitti_dbinfos_train.pkl
+                  - nuscenes_dbinfos_10sweeps.pkl
               PREPARE: {
-                 filter_by_min_points: ['Car:5', 'Pedestrian:5', 'Cyclist:5'],
-                 filter_by_difficulty: [-1],
+                 filter_by_min_points: [
+                     'car:5', 'bicycle:5', 'pedestrian:5'
+                 ],
               }
 
-              SAMPLE_GROUPS: ['Car:15','Pedestrian:10', 'Cyclist:10']
-              NUM_POINT_FEATURES: 4
+              SAMPLE_GROUPS: [
+                  'car:2', 'bicycle:6', 'pedestrian:2'
+              ]
+
+              NUM_POINT_FEATURES: 5
               DATABASE_WITH_FAKELIDAR: False
               REMOVE_EXTRA_WIDTH: [0.0, 0.0, 0.0]
-              LIMIT_WHOLE_SCENE: False
+              LIMIT_WHOLE_SCENE: True
               
             - NAME: random_world_flip
-              ALONG_AXIS_LIST: ['x']
+              ALONG_AXIS_LIST: ['x', 'y']
 
             - NAME: random_world_rotation
               WORLD_ROT_ANGLE: [-0.78539816, 0.78539816]
 
             - NAME: random_world_scaling
-              WORLD_SCALE_RANGE: [0.95, 1.05]
+              WORLD_SCALE_RANGE: [0.9, 1.1]
             
+            - NAME: normalize_object_size
+              SIZE_RES: [[-0.75, -0.34, -0.2], 
+                [-0.14, -0.12, 0.34], 
+                [0.09, -0.06, 0.0]]
 
     DATA_PROCESSOR:
-        - NAME: mask_points_and_boxes_outside_range
-          REMOVE_OUTSIDE_BOXES: True
+        -   NAME: mask_points_and_boxes_outside_range
+            REMOVE_OUTSIDE_BOXES: True
 
         - NAME: shuffle_points
           SHUFFLE_ENABLED: {
             'train': True,
-            'test': False
+            'test': True
           }
 
         - NAME: transform_points_to_voxels
@@ -189,7 +196,7 @@ MODEL:
 OPTIMIZATION:
     BATCH_SIZE_PER_GPU: 8 #sever : 10 #conv 8
     EVAL_BATCH_SIZE_PER_GPU: 8 #sever : 10 #conv 8
-    NUM_EPOCHS: 80
+    NUM_EPOCHS: 20
 
     OPTIMIZER: adam_onecycle
     LR: 0.001

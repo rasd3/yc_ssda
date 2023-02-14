@@ -34,7 +34,20 @@ class KittiDataset(DatasetTemplate):
         super().__init__(
             dataset_cfg=dataset_cfg, class_names=class_names, training=training, root_path=root_path, logger=logger
         )
+        map_name_to_kitti = {
+            'car': 'Car',
+            'pedestrian': 'Pedestrian',
+            'truck': 'Truck',
+            'bus': 'Bus',
+            'motorcycle': 'Motorcycle',
+            'bicycle': 'Cyclist'
+        }
+        self.class_names_k = copy.deepcopy(self.class_names)
+        for idx in range(len(self.class_names_k)):
+            if self.class_names_k[idx] in map_name_to_kitti:
+                self.class_names_k[idx] = map_name_to_kitti[self.class_names_k[idx]]
         self.split = self.dataset_cfg.DATA_SPLIT[self.mode]
+        self.shift_coor = self.dataset_cfg.get('SHIFT_COOR', None)
         self.root_split_path = self.root_path / ('training' if self.split != 'test' else 'testing')
         self.repeat = self.dataset_cfg.REPEAT
 
@@ -84,7 +97,7 @@ class KittiDataset(DatasetTemplate):
 
     def set_split(self, split):
         super().__init__(
-            dataset_cfg=self.dataset_cfg, class_names=self.class_names, training=self.training, root_path=self.root_path, logger=self.logger
+            dataset_cfg=self.dataset_cfg, class_names=self.class_names_k, training=self.training, root_path=self.root_path, logger=self.logger
         )
         self.split = split
         self.root_split_path = self.root_path / ('training' if self.split != 'test' else 'testing')
@@ -309,8 +322,8 @@ class KittiDataset(DatasetTemplate):
             if pred_scores.shape[0] == 0:
                 return pred_dict
 
-            if self.dataset_cfg.get('SHIFT_COOR', None):
-                pred_boxes[:, 0:3] -= self.dataset_cfg.SHIFT_COOR
+            if self.shift_coor:
+                pred_boxes[:, 0:3] -= self.shift_coor
 
             # BOX FILTER
             if self.dataset_cfg.get('TEST', None) and self.dataset_cfg.TEST.BOX_FILTER['FOV_FILTER']:
@@ -347,7 +360,6 @@ class KittiDataset(DatasetTemplate):
                 pred_dict['location'] = np.zeros((0, 3))
                 pred_dict['rotation_y'] = np.zeros((0, ))
                 pred_dict['alpha'] = np.zeros((0, ))
-                abcd = 1
 
             return pred_dict
 
@@ -499,7 +511,7 @@ class KittiDataset(DatasetTemplate):
             metrics = json.load(f)
 
         result_str, result_dict = kitti_utils.format_kitti_results(
-            metrics, self.class_names, version=eval_version)
+            metrics, self.class_names_k, version=eval_version)
         return result_str, result_dict
 
     def evaluation(self, det_annos, class_names, **kwargs):
@@ -543,8 +555,8 @@ class KittiDataset(DatasetTemplate):
             fov_flag = self.get_fov_flag(pts_rect, img_shape, calib)
             points = points[fov_flag]
 
-        if self.dataset_cfg.get('SHIFT_COOR', None):
-            points[:, 0:3] += np.array(self.dataset_cfg.SHIFT_COOR, dtype=np.float32)
+        if self.shift_coor:
+            points[:, :3] += np.array(self.shift_coor, dtype=np.float32)
 
         input_dict = {
             'points': points,
@@ -560,8 +572,9 @@ class KittiDataset(DatasetTemplate):
             gt_boxes_camera = np.concatenate([loc, dims, rots[..., np.newaxis]], axis=1).astype(np.float32)
             gt_boxes_lidar = box_utils.boxes3d_kitti_camera_to_lidar(gt_boxes_camera, calib)
 
-            if self.dataset_cfg.get('SHIFT_COOR', None):
-                gt_boxes_lidar[:, 0:3] += self.dataset_cfg.SHIFT_COOR
+            if self.shift_coor:
+                gt_boxes_lidar[:, :3] += self.shift_coor
+                input_dict['shift_coor'] = self.shift_coor
 
             input_dict.update({
                 'gt_names': gt_names,
@@ -576,6 +589,63 @@ class KittiDataset(DatasetTemplate):
         data_dict['image_shape'] = img_shape
         return data_dict
 
+    def prepare_data(self, data_dict):
+        """
+        Args:
+            data_dict:
+                points: (N, 3 + C_in)
+                gt_boxes: optional, (N, 7 + C) [x, y, z, dx, dy, dz, heading, ...]
+                gt_names: optional, (N), string
+                ...
+
+        Returns:
+            data_dict:
+                frame_id: string
+                points: (N, 3 + C_in)
+                gt_boxes: optional, (N, 7 + C) [x, y, z, dx, dy, dz, heading, ...]
+                gt_names: optional, (N), string
+                use_lead_xyz: bool
+                voxels: optional (num_voxels, max_points_per_voxel, 3 + C)
+                voxel_coords: optional (num_voxels, 3)
+                voxel_num_points: optional (num_voxels)
+                ...
+        """
+        if self.training:
+            assert 'gt_boxes' in data_dict, 'gt_boxes should be provided for training'
+            gt_boxes_mask = np.array(
+                [n in self.class_names_k for n in data_dict['gt_names']],
+                dtype=np.bool_)
+
+            data_dict = self.data_augmentor.forward(
+                data_dict={
+                    **data_dict, 'gt_boxes_mask': gt_boxes_mask
+                })
+
+        if data_dict.get('gt_boxes', None) is not None:
+            selected = common_utils.keep_arrays_by_name(
+                data_dict['gt_names'], self.class_names_k)
+            data_dict['gt_boxes'] = data_dict['gt_boxes'][selected]
+            data_dict['gt_names'] = data_dict['gt_names'][selected]
+            gt_classes = np.array(
+                [self.class_names_k.index(n) + 1 for n in data_dict['gt_names']],
+                dtype=np.int32)
+            gt_boxes = np.concatenate(
+                (data_dict['gt_boxes'], gt_classes.reshape(-1, 1).astype(
+                    np.float32)),
+                axis=1)
+            data_dict['gt_boxes'] = gt_boxes
+
+        data_dict = self.point_feature_encoder.forward(data_dict)
+
+        data_dict = self.data_processor.forward(data_dict=data_dict)
+
+        if self.training and len(data_dict['gt_boxes']) == 0:
+            new_index = np.random.randint(self.__len__())
+            return self.__getitem__(new_index)
+
+        data_dict.pop('gt_names', None)
+
+        return data_dict
 
 def create_kitti_infos(dataset_cfg, class_names, data_path, save_path, workers=4):
     dataset = KittiDataset(dataset_cfg=dataset_cfg, class_names=class_names, root_path=data_path, training=False)
