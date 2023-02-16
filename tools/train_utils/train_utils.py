@@ -202,7 +202,7 @@ def train_one_epoch_dann(model, optimizer, train_loader, model_func, lr_schedule
         src_batch['domain_target'] = False
         src_batch['use_local_alignment'] = False
         src_loss, tb_dict, disp_dict = model_func(model, src_batch)
-        src_loss.backward(retain_graph=retain_graph)
+        src_loss.backward(retain_graph=True)
         if not retain_graph:
             clip_grad_norm_(model.parameters(), optim_cfg.GRAD_NORM_CLIP)
             optimizer.step()
@@ -221,30 +221,8 @@ def train_one_epoch_dann(model, optimizer, train_loader, model_func, lr_schedule
             if 'domain_cls_loss' in trg_tb_dict:
                 tb_dict['trg_domain_cls_loss'] = trg_tb_dict['domain_cls_loss']
                 tb_dict['src_domain_cls_loss'] = tb_dict.pop('domain_cls_loss')
-
-        loss_node_adv = torch.tensor(0.).cuda()
-        if use_local_alignment:
-            optimizer.zero_grad()
-            src_batch['use_local_alignment'] = True
-            trg_batch['use_local_alignment'] = True
-            if dla_cfg.DIR == 'st':
-                with torch.no_grad():
-                    _, tb_dict, disp_dict, s_dla_feat = model_func(model, src_batch)
-                _, trg_tb_dict, trg_disp_dict, t_dla_feat = model_func(model, trg_batch)
-            else:
-                _, tb_dict, disp_dict, s_dla_feat = model_func(model, src_batch)
-                with torch.no_grad():
-                    _, trg_tb_dict, trg_disp_dict, t_dla_feat = model_func(model, trg_batch)
-            K = min(s_dla_feat.shape[0], t_dla_feat.shape[0])
-            s_dla_feat, t_dla_feat = s_dla_feat[:K], t_dla_feat[:K]
-            sigma_list = [0.01, 0.1, 1, 10, 100]
-            loss_node_adv = 1 * mmd.mix_rbf_mmd2(s_dla_feat, t_dla_feat, sigma_list)
-            loss_node_adv.backward()
-            clip_grad_norm_(model.parameters(), optim_cfg.GRAD_NORM_CLIP)
-            optimizer.step()
-
-            tb_dict['domain_align_loss'] = loss_node_adv.item()
-        loss_mgfa = torch.tensor(0.).cuda()
+        
+        loss_mgfa = trg_d_loss
         if use_mgfa:
             sigma_list = [0.01, 0.1, 1, 10, 100]
             src_mgfa_feats = [f.clone() for f in disp_dict['mgfa_feats']]
@@ -252,17 +230,16 @@ def train_one_epoch_dann(model, optimizer, train_loader, model_func, lr_schedule
             disp_dict.pop('mgfa_feats')
             trg_disp_dict.pop('mgfa_feats')
             for idx in range(len(src_mgfa_feats)):
-                loss_mgfa_i = 1 * mmd.mix_rbf_mmd2(src_mgfa_feats[idx], 
-                                                   trg_mgfa_feats[idx],
-                                                   sigma_list)
+                loss_mgfa_i = mmd.mix_rbf_mmd2(src_mgfa_feats[idx].detach(), 
+                                               trg_mgfa_feats[idx],
+                                               sigma_list)
                 loss_mgfa = loss_mgfa + loss_mgfa_i
-            trg_d_loss = loss_mgfa + trg_d_loss
-            trg_d_loss.backward()
+            loss_mgfa.backward()
             clip_grad_norm_(model.parameters(), optim_cfg.GRAD_NORM_CLIP)
             optimizer.step()
 
         accumulated_iter += 1
-        disp_dict.update({'loss': src_loss.item() + trg_d_loss.item() + loss_node_adv.item() + loss_mgfa.item(), 'lr': cur_lr})
+        disp_dict.update({'loss': src_loss.item() + trg_d_loss.item(), 'lr': cur_lr})
 
         # log to console and tensorboard
         if rank == 0:
@@ -272,7 +249,117 @@ def train_one_epoch_dann(model, optimizer, train_loader, model_func, lr_schedule
             tbar.refresh()
 
             if tb_log is not None:
-                tb_log.add_scalar('train/loss', src_loss.item() + trg_d_loss.item() + loss_node_adv.item(), accumulated_iter)
+                tb_log.add_scalar('train/loss', src_loss.item() + trg_d_loss.item(), accumulated_iter)
+                tb_log.add_scalar('meta_data/learning_rate', cur_lr, accumulated_iter)
+                for key, val in tb_dict.items():
+                    # print(key, val)
+                    tb_log.add_scalar('train/' + key, val, accumulated_iter)
+    if rank == 0:
+        pbar.close()
+    return accumulated_iter
+
+def train_one_epoch_dann_st(model, optimizer, train_loader, model_func, lr_scheduler, accumulated_iter, optim_cfg,
+                            rank, tbar, total_it_each_epoch, dataloader_iter, tb_log=None, leave_pbar=False,
+                            cur_epoch=0, total_epochs=0, retain_graph=False,
+                            ):
+    if total_it_each_epoch == len(train_loader):
+        dataloader_iter = iter(train_loader)
+
+    if rank == 0:
+        pbar = tqdm.tqdm(total=total_it_each_epoch, leave=leave_pbar, desc='train', dynamic_ncols=True)
+
+    cur_train_dict = {
+        'cur_epoch': cur_epoch,
+        'total_epochs': total_epochs,
+        'total_it_each_epoch': total_it_each_epoch,
+    }
+
+    if type(model) == torch.nn.parallel.distributed.DistributedDataParallel:
+        use_local_alignment = model.module.use_local_alignment
+        use_domain_cls = model.module.backbone_2d.use_domain_cls
+        use_mgfa = model.module.backbone_2d.mgfa
+        if use_local_alignment:
+            dla_cfg = model.module.dla_cfg
+    else:
+        use_local_alignment = model.use_local_alignment
+        use_domain_cls = model.backbone_2d.use_domain_cls
+        use_mgfa = model.backbone_2d.mgfa
+        if use_local_alignment:
+            dla_cfg = model.dla_cfg
+    for cur_it in range(total_it_each_epoch):
+        try:
+            src_batch, trg_batch = next(dataloader_iter)
+        except StopIteration:
+            dataloader_iter = iter(train_loader)
+            src_batch, trg_batch = next(dataloader_iter)
+            print('new iters')
+
+        lr_scheduler.step(accumulated_iter)
+
+        try:
+            cur_lr = float(optimizer.lr)
+        except:
+            cur_lr = optimizer.param_groups[0]['lr']
+
+        if tb_log is not None:
+            tb_log.add_scalar('meta_data/learning_rate', cur_lr, accumulated_iter)
+
+        model.train()
+
+        cur_train_dict['cur_it'] = cur_it
+        cur_train_dict['data_split'] = True
+        src_batch['cur_train_meta'] = cur_train_dict
+        src_batch['domain_target'] = False
+        src_batch['use_local_alignment'] = False
+        trg_batch['cur_train_meta'] = cur_train_dict
+        trg_batch['domain_target'] = True
+        trg_batch['use_local_alignment'] = False
+
+        optimizer.zero_grad()
+
+        trg_d_loss = torch.tensor(0.).cuda()
+        if use_domain_cls:
+            if not retain_graph:
+                optimizer.zero_grad()
+            trg_d_loss, tb_dict, trg_disp_dict = model_func(model, trg_batch)
+            trg_d_loss.backward(retain_graph=True)
+            if 'domain_cls_loss' in tb_dict:
+                tb_dict['trg_domain_cls_loss'] = tb_dict['domain_cls_loss']
+        
+        src_loss, src_tb_dict, disp_dict = model_func(model, src_batch)
+        tb_dict['src_domain_cls_loss'] = src_tb_dict.pop('domain_cls_loss')
+        if not retain_graph:
+            clip_grad_norm_(model.parameters(), optim_cfg.GRAD_NORM_CLIP)
+            optimizer.step()
+
+        loss_mgfa = src_loss
+        if use_mgfa:
+            sigma_list = [0.01, 0.1, 1, 10, 100]
+            src_mgfa_feats = [f.clone() for f in disp_dict['mgfa_feats']]
+            trg_mgfa_feats = [f.clone() for f in trg_disp_dict['mgfa_feats']]
+            disp_dict.pop('mgfa_feats')
+            trg_disp_dict.pop('mgfa_feats')
+            for idx in range(len(src_mgfa_feats)):
+                loss_mgfa_i = mmd.mix_rbf_mmd2(src_mgfa_feats[idx], 
+                                               trg_mgfa_feats[idx].detach(),
+                                               sigma_list)
+                loss_mgfa = loss_mgfa + loss_mgfa_i
+            loss_mgfa.backward()
+            clip_grad_norm_(model.parameters(), optim_cfg.GRAD_NORM_CLIP)
+            optimizer.step()
+
+        accumulated_iter += 1
+        disp_dict.update({'loss': src_loss.item() + trg_d_loss.item(), 'lr': cur_lr})
+
+        # log to console and tensorboard
+        if rank == 0:
+            pbar.update()
+            pbar.set_postfix(dict(total_it=accumulated_iter))
+            tbar.set_postfix(disp_dict)
+            tbar.refresh()
+
+            if tb_log is not None:
+                tb_log.add_scalar('train/loss', src_loss.item() + trg_d_loss.item(), accumulated_iter)
                 tb_log.add_scalar('meta_data/learning_rate', cur_lr, accumulated_iter)
                 for key, val in tb_dict.items():
                     # print(key, val)
@@ -318,7 +405,10 @@ def train_model(model, optimizer, train_loader, model_func, lr_scheduler, optim_
                     augmentor_configs=None, intensity=cfg.DATA_CONFIG.PROG_AUG.SCALE)
 
             if 'DANN' in type(train_loader.dataset).__name__ and train_loader.dataset.divide_data:
-                train_epoch_func = train_one_epoch_dann
+                if optim_cfg.get('MGFA_DIR', None) == 'ST':
+                    train_epoch_func = train_one_epoch_dann_st
+                else:
+                    train_epoch_func = train_one_epoch_dann
             else:
                 train_epoch_func = train_one_epoch
 
