@@ -47,11 +47,6 @@ DATA_CONFIG:
 
                 - NAME: random_world_scaling
                   WORLD_SCALE_RANGE: [0.9, 1.1]
-                
-                - NAME: normalize_object_size
-                  SIZE_RES: [[-0.75, -0.34, -0.2], 
-                    [-0.14, -0.12, 0.34], 
-                    [0.09, -0.06, 0.0]]
 
         DATA_PROCESSOR:
             -   NAME: mask_points_and_boxes_outside_range
@@ -107,15 +102,6 @@ MODEL:
     BACKBONE_2D:
         NAME: BaseBEVBackbone
 
-        LAYER_NUMS: [5, 5]
-        LAYER_STRIDES: [1, 2]
-        NUM_FILTERS: [128, 256]
-        UPSAMPLE_STRIDES: [1, 2]
-        NUM_UPSAMPLE_FILTERS: [256, 256]
-
-        MGFA: True
-        MGFA_FEATS_SCALE: [0, 1, 2]
-
         USE_DOMAIN_CLASSIFIER: True
         DC_VERSION: POOL_1
         LOSS_CONFIG:
@@ -123,6 +109,12 @@ MODEL:
             LOSS_WEIGHTS: {
                 'dc_weight': 1.0,
             }
+
+        LAYER_NUMS: [5, 5]
+        LAYER_STRIDES: [1, 2]
+        NUM_FILTERS: [128, 256]
+        UPSAMPLE_STRIDES: [1, 2]
+        NUM_UPSAMPLE_FILTERS: [256, 256]
 
     DENSE_HEAD:
         NAME: CenterHeadRCNNV2 #CenterHead_PointPillar
@@ -205,15 +197,12 @@ MODEL:
                 'code_weights': [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
             }
 
-    
-
-    
     POST_PROCESSING:
         RECALL_THRESH_LIST: [0.3, 0.5, 0.7]
         SCORE_THRESH: 0.1
         OUTPUT_RAW_SCORE: False
 
-        EVAL_METRIC: kitti
+        EVAL_METRIC: nuscenes
 
         NMS_CONFIG:
             MULTI_CLASSES_NMS: True
@@ -236,7 +225,6 @@ OPTIMIZATION:
     NUM_EPOCHS: 20
 
     OPTIMIZER: adam_onecycle
-    MGFA_DIR: ST
     LR: 0.001
     WEIGHT_DECAY: 0.01
     MOMENTUM: 0.9

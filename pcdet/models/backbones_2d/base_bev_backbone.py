@@ -116,6 +116,7 @@ class BaseBEVBackbone(nn.Module):
 
             self.forward_ret_dict = {}
         if self.mgfa:
+            self.mgfa_feats_scale = self.model_cfg.get('MGFA_FEATS_SCALE', [0, 1, 2])
             self.mgfa_proj = []
             self.mgfa_pool = []
             ch_in = num_filters + [c_in]
@@ -231,14 +232,15 @@ class BaseBEVBackbone(nn.Module):
                 self.remove_trg_data(data_dict)
             else:
                 self.domain_data_split = True
-        if self.mgfa:
+        if self.mgfa and 'cur_train_meta' in data_dict:
             feat_names = ['spatial_features_1x', 'spatial_features_2x', 'spatial_features_2d']
             mgfa_proj_feats = []
             for idx, feat_name in enumerate(feat_names):
-                mgfa_feat = ret_dict[feat_name]
-                mgfa_feat = self.mgfa_pool[idx](mgfa_feat).view(mgfa_feat.size(0), -1)
-                mgfa_feat = self.mgfa_proj[idx](mgfa_feat)
-                mgfa_proj_feats.append(mgfa_feat)
+                if idx in self.mgfa_feats_scale:
+                    mgfa_feat = ret_dict[feat_name]
+                    mgfa_feat = self.mgfa_pool[idx](mgfa_feat).view(mgfa_feat.size(0), -1)
+                    mgfa_feat = self.mgfa_proj[idx](mgfa_feat)
+                    mgfa_proj_feats.append(mgfa_feat)
             data_dict['mgfa_feats'] = mgfa_proj_feats
 
         return data_dict

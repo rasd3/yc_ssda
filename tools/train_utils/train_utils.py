@@ -203,18 +203,13 @@ def train_one_epoch_dann(model, optimizer, train_loader, model_func, lr_schedule
         src_batch['use_local_alignment'] = False
         src_loss, tb_dict, disp_dict = model_func(model, src_batch)
         src_loss.backward(retain_graph=True)
-        if not retain_graph:
-            clip_grad_norm_(model.parameters(), optim_cfg.GRAD_NORM_CLIP)
-            optimizer.step()
 
         trg_batch['domain_target'] = True
         trg_batch['use_local_alignment'] = False
         trg_d_loss = torch.tensor(0.).cuda()
         if use_domain_cls:
-            if not retain_graph:
-                optimizer.zero_grad()
             trg_d_loss, trg_tb_dict, trg_disp_dict = model_func(model, trg_batch)
-            if not retain_graph and not use_mgfa:
+            if not use_mgfa:
                 trg_d_loss.backward()
                 clip_grad_norm_(model.parameters(), optim_cfg.GRAD_NORM_CLIP)
                 optimizer.step()
@@ -222,7 +217,6 @@ def train_one_epoch_dann(model, optimizer, train_loader, model_func, lr_schedule
                 tb_dict['trg_domain_cls_loss'] = trg_tb_dict['domain_cls_loss']
                 tb_dict['src_domain_cls_loss'] = tb_dict.pop('domain_cls_loss')
         
-        loss_mgfa = trg_d_loss
         if use_mgfa:
             sigma_list = [0.01, 0.1, 1, 10, 100]
             src_mgfa_feats = [f.clone() for f in disp_dict['mgfa_feats']]
@@ -233,8 +227,8 @@ def train_one_epoch_dann(model, optimizer, train_loader, model_func, lr_schedule
                 loss_mgfa_i = mmd.mix_rbf_mmd2(src_mgfa_feats[idx].detach(), 
                                                trg_mgfa_feats[idx],
                                                sigma_list)
-                loss_mgfa = loss_mgfa + loss_mgfa_i
-            loss_mgfa.backward()
+                trg_d_loss = trg_d_loss + loss_mgfa_i
+            trg_d_loss.backward()
             clip_grad_norm_(model.parameters(), optim_cfg.GRAD_NORM_CLIP)
             optimizer.step()
 
@@ -332,7 +326,6 @@ def train_one_epoch_dann_st(model, optimizer, train_loader, model_func, lr_sched
             clip_grad_norm_(model.parameters(), optim_cfg.GRAD_NORM_CLIP)
             optimizer.step()
 
-        loss_mgfa = src_loss
         if use_mgfa:
             sigma_list = [0.01, 0.1, 1, 10, 100]
             src_mgfa_feats = [f.clone() for f in disp_dict['mgfa_feats']]
@@ -343,8 +336,8 @@ def train_one_epoch_dann_st(model, optimizer, train_loader, model_func, lr_sched
                 loss_mgfa_i = mmd.mix_rbf_mmd2(src_mgfa_feats[idx], 
                                                trg_mgfa_feats[idx].detach(),
                                                sigma_list)
-                loss_mgfa = loss_mgfa + loss_mgfa_i
-            loss_mgfa.backward()
+                src_loss = src_loss + loss_mgfa_i
+            src_loss.backward()
             clip_grad_norm_(model.parameters(), optim_cfg.GRAD_NORM_CLIP)
             optimizer.step()
 

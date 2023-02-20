@@ -107,22 +107,19 @@ MODEL:
     BACKBONE_2D:
         NAME: BaseBEVBackbone
 
-        LAYER_NUMS: [5, 5]
-        LAYER_STRIDES: [1, 2]
-        NUM_FILTERS: [128, 256]
-        UPSAMPLE_STRIDES: [1, 2]
-        NUM_UPSAMPLE_FILTERS: [256, 256]
-
-        MGFA: True
-        MGFA_FEATS_SCALE: [0, 1, 2]
-
         USE_DOMAIN_CLASSIFIER: True
-        DC_VERSION: POOL_1
+        DC_VERSION: POOL_1_AVG
         LOSS_CONFIG:
             LOSS_DC: NLL
             LOSS_WEIGHTS: {
                 'dc_weight': 1.0,
             }
+
+        LAYER_NUMS: [5, 5]
+        LAYER_STRIDES: [1, 2]
+        NUM_FILTERS: [128, 256]
+        UPSAMPLE_STRIDES: [1, 2]
+        NUM_UPSAMPLE_FILTERS: [256, 256]
 
     DENSE_HEAD:
         NAME: CenterHeadRCNNV2 #CenterHead_PointPillar
@@ -236,7 +233,6 @@ OPTIMIZATION:
     NUM_EPOCHS: 20
 
     OPTIMIZER: adam_onecycle
-    MGFA_DIR: ST
     LR: 0.001
     WEIGHT_DECAY: 0.01
     MOMENTUM: 0.9

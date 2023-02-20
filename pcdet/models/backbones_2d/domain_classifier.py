@@ -55,6 +55,30 @@ class pool_1(nn.Module):
 
         return domain_output
 
+class pool_1_avg(nn.Module):
+    ''' Follow DANN github
+    '''
+
+    def __init__(self):
+        super().__init__()
+
+        layers = nn.Sequential()
+        layers.add_module('d_fc1', nn.Linear(512, 128))
+        layers.add_module('d_bn1', nn.BatchNorm1d(128))
+        layers.add_module('d_relu1', nn.ReLU(False))
+        layers.add_module('d_fc2', nn.Linear(128, 2))
+        layers.add_module('d_softmax', nn.LogSoftmax(dim=1))
+        self.layers = layers
+
+    def forward(self, feat, alpha):
+        B, C, W, H = feat.shape
+        feat = feat.reshape(B, C, -1)
+        feat = torch.mean(feat, dim=2)
+        feat = ReverseLayerF.apply(feat, alpha)
+        domain_output = self.layers(feat)
+
+        return domain_output
+
 class pool_1_cp(nn.Module):
     ''' Follow DANN github
     '''
@@ -159,6 +183,7 @@ class conv_2(nn.Module):
         return feat
 
 model_dict = {'POOL_1': pool_1,
+              'POOL_1_AVG': pool_1_avg,
               'POOL_1_CP': pool_1_cp,
               'POOL_2': pool_2,
               'CONV_1': conv_1,

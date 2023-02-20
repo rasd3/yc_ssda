@@ -210,7 +210,7 @@ MODEL:
         SCORE_THRESH: 0.1
         OUTPUT_RAW_SCORE: False
 
-        EVAL_METRIC: kitti
+        EVAL_METRIC: nuscenes
 
         NMS_CONFIG:
             MULTI_CLASSES_NMS: True

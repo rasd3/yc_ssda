@@ -114,7 +114,7 @@ MODEL:
         NUM_UPSAMPLE_FILTERS: [256, 256]
 
         MGFA: True
-        MGFA_FEATS_SCALE: [0, 1, 2]
+        MGFA_FEATS_NUM: [2]
 
         USE_DOMAIN_CLASSIFIER: True
         DC_VERSION: POOL_1
@@ -236,7 +236,7 @@ OPTIMIZATION:
     NUM_EPOCHS: 20
 
     OPTIMIZER: adam_onecycle
-    MGFA_DIR: ST
+    MGFA_DIR: TS
     LR: 0.001
     WEIGHT_DECAY: 0.01
     MOMENTUM: 0.9
